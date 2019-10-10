@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["vdisc.capnp.go"],
+    importpath = "github.com/NVIDIA/vdisc/pkg/vdisc/types",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/vdisc/types/v1:go_default_library",
+        "@com_zombiezen_go_capnproto2//:go_default_library",
+        "@com_zombiezen_go_capnproto2//encoding/text:go_default_library",
+        "@com_zombiezen_go_capnproto2//schemas:go_default_library",
+    ],
+)

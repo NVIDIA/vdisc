@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "context.go",
+        "region.go",
+        "s3.go",
+        "writer.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/storage/s3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/httputil:go_default_library",
+        "//pkg/s3util:go_default_library",
+        "//pkg/storage:go_default_library",
+        "//pkg/storage/http:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/credentials:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/defaults:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/endpoints:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/session:go_default_library",
+        "@com_github_aws_aws_sdk_go//service/s3:go_default_library",
+        "@com_github_aws_aws_sdk_go//service/s3/s3iface:go_default_library",
+    ],
+)

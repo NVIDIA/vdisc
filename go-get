@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+cd $(dirname "${BASH_SOURCE[0]}")
+
+bazel build @go_sdk//...
+GO111MODULE=on ./bazel-vdisc/external/go_sdk/bin/go get $@
+GO111MODULE=on bazel run //:gazelle -- update-repos -from_file=go.mod
+

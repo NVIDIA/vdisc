@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "github.com/NVIDIA/vdisc/cmd/vdisc",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/storage/data:go_default_library",
+        "//pkg/storage/file:go_default_library",
+        "//pkg/storage/http:go_default_library",
+        "//pkg/storage/s3:go_default_library",
+        "//pkg/storage/swift:go_default_library",
+        "//pkg/storage/zero:go_default_library",
+        "//pkg/vdisc/cli:go_default_library",
+        "@com_github_alecthomas_kong//:go_default_library",
+        "@com_github_google_uuid//:go_default_library",
+        "@org_uber_go_automaxprocs//maxprocs:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "vdisc",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

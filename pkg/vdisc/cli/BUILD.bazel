@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "burn.go",
+        "cli.go",
+        "cp.go",
+        "inspect.go",
+        "ls.go",
+        "mount.go",
+        "mount_darwin.go",
+        "mount_linux.go",
+        "tree.go",
+        "version.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/vdisc/cli",
+    visibility = ["//visibility:public"],
+    x_defs = {"github.com/NVIDIA/vdisc/pkg/vdisc/cli.Version": "{STABLE_SEMVER_FROM_GIT}"},
+    deps = [
+        "//pkg/blockdev:go_default_library",
+        "//pkg/iso9660:go_default_library",
+        "//pkg/isofuse:go_default_library",
+        "//pkg/storage:go_default_library",
+        "//pkg/vdisc:go_default_library",
+        "@com_github_alecthomas_kong//:go_default_library",
+        "@com_github_fatih_color//:go_default_library",
+        "@com_github_google_uuid//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//pkg/unixcompat:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "ce.go",
+        "er.go",
+        "sp.go",
+        "st.go",
+        "susp.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/iso9660/susp",
+    visibility = ["//visibility:public"],
+)

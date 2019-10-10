@@ -1,0 +1,32 @@
+# gazelle:ignore
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "nm.go",
+        "px.go",
+        "rrip.go",
+        "sl.go",
+        "tf.go",
+        "validator.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/iso9660/rrip",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/iso9660/datetime:go_default_library",
+        "//pkg/iso9660/susp:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "nm_test.go",
+        "sl_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)

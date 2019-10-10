@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "blockdevicemanager.go",
+        "cmd_handler.go",
+        "cmdpool.go",
+        "tcmu.go",
+        "tune.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/blockdev",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/kmod:go_default_library",
+        "//pkg/storage:go_default_library",
+        "//pkg/unixcompat:go_default_library",
+        "@com_github_google_uuid//:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@com_github_tnarg_go_tcmu//:go_default_library",
+        "@com_github_tnarg_go_tcmu//scsi:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["cmdpool_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_tnarg_go_tcmu//:go_default_library",
+    ],
+)

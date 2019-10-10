@@ -1,0 +1,58 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "continuation.go",
+        "directory.go",
+        "directoryinode.go",
+        "directoryrecord.go",
+        "file.go",
+        "fileflag.go",
+        "fileinfo.go",
+        "fileinode.go",
+        "identifier.go",
+        "inode.go",
+        "ioutil.go",
+        "iso9660.go",
+        "namevalidator.go",
+        "pathtable.go",
+        "pvd.go",
+        "sectorallocator.go",
+        "stra.go",
+        "strd.go",
+        "symlinkinode.go",
+        "terminator.go",
+        "visitor.go",
+        "volume.go",
+        "walk.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/iso9660",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/iso9660/datetime:go_default_library",
+        "//pkg/iso9660/rrip:go_default_library",
+        "//pkg/iso9660/susp:go_default_library",
+        "//pkg/storage:go_default_library",
+        "@com_github_badgerodon_collections//queue:go_default_library",
+        "@com_github_emirpasic_gods//maps/treemap:go_default_library",
+        "@com_github_hashicorp_golang_lru//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "directory_test.go",
+        "directoryrecord_test.go",
+        "pvd_test.go",
+        "volume_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/iso9660/susp:go_default_library",
+        "//pkg/storage:go_default_library",
+        "//pkg/storage/zero:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
