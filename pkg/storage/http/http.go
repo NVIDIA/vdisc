@@ -15,7 +15,6 @@ package httpdriver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	stdurl "net/url"
@@ -38,6 +37,10 @@ type Driver struct {
 	defaultTransport http.RoundTripper
 }
 
+func (d *Driver) Name() string {
+	return "httpdriver"
+}
+
 func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	u, err := d.parseURL(url)
 	if err != nil {
@@ -46,10 +49,6 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Objec
 
 	c := d.newClient(ctx)
 	return NewObject(c, url, u, size), nil
-}
-
-func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
-	return nil, errors.New("httpdriver: create not implemented")
 }
 
 func (d *Driver) Remove(ctx context.Context, url string) error {
@@ -78,14 +77,6 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	}
 
 	return NewFileInfo(name, size), nil
-}
-
-func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
-	_, err := d.parseURL(url)
-	if err != nil {
-		return nil, err
-	}
-	return nil, errors.New("httpdriver: readdir not implemented")
 }
 
 func (d *Driver) parseURL(url string) (*stdurl.URL, error) {

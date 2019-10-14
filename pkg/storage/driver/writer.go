@@ -25,6 +25,11 @@ type ObjectWriter interface {
 	Commit() (CommitInfo, error)
 }
 
+type XattrObjectWriter interface {
+	ObjectWriter
+	SetXattr(name string, value []byte) error
+}
+
 type CommitInfo interface {
 	// ObjectURL returns the final URL of the committed object
 	ObjectURL() string

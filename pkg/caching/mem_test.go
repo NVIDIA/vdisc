@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package vdisc_test
+package caching_test
 
 import (
 	"bytes"
@@ -20,14 +20,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/NVIDIA/vdisc/pkg/caching"
 	"github.com/NVIDIA/vdisc/pkg/storage"
 	_ "github.com/NVIDIA/vdisc/pkg/storage/data"
-	"github.com/NVIDIA/vdisc/pkg/vdisc"
 )
 
-func TestBufferCache(t *testing.T) {
-	bsizes := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
-	bcounts := []int{1, 2, 3, 4, 5}
+func TestMemoryCache(t *testing.T) {
+	bsizes := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+	bcounts := []int64{1, 2, 3, 4, 5}
 
 	as, err := storage.Open("data:text/plain,aaa")
 	if err != nil {
@@ -50,11 +50,12 @@ func TestBufferCache(t *testing.T) {
 
 	for _, bsize := range bsizes {
 		for _, bcount := range bcounts {
-			bcache, err := vdisc.NewBufferCache(vdisc.BufferCacheConfig{bsize, bcount})
+			slicer, err := caching.NewMemorySlicer(bsize, bcount)
 			if err != nil {
 				t.Fatal(err)
 			}
-			sra := bcache.Wrap(storage.WithURL(srax, "test:srax"))
+			cache := caching.NewCache(slicer, 0)
+			sra := cache.WithCaching(storage.WithURL(srax, "test:srax"))
 
 			for i := 0; i < 10; i++ {
 				for start := 0; start < len(full); start++ {
@@ -64,7 +65,7 @@ func TestBufferCache(t *testing.T) {
 						buf := make([]byte, end-start)
 						n, err := sra.ReadAt(buf, int64(start))
 						if err != nil {
-							t.Fatal(err)
+							t.Fatalf("start=%d, end=%d, full=%q, n=%d, err=%v", start, end, full, n, err)
 						}
 
 						if n != len(buf) {
@@ -85,16 +86,17 @@ func TestBufferCache(t *testing.T) {
 	}
 }
 
-func TestBufferCacheRace(t *testing.T) {
+func TestMemoryCacheRace(t *testing.T) {
 	s, err := storage.Open("data:text/plain,aaaaaaaaaaaaaaaaaaaa")
 	if err != nil {
 		t.Fatal(err)
 	}
-	bcache, err := vdisc.NewBufferCache(vdisc.BufferCacheConfig{8, 2})
+	slicer, err := caching.NewMemorySlicer(8, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cached := bcache.Wrap(s)
+	cache := caching.NewCache(slicer, 0)
+	cached := cache.WithCaching(s)
 
 	var wg sync.WaitGroup
 	wg.Add(1000)

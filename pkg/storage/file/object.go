@@ -15,6 +15,8 @@ package filedriver
 
 import (
 	"os"
+
+	"golang.org/x/sys/unix"
 )
 
 type object struct {
@@ -44,6 +46,16 @@ func (o *object) Seek(offset int64, whence int) (n int64, err error) {
 
 func (o *object) Size() int64 {
 	return o.size
+}
+
+func (o *object) GetXattr(name string) ([]byte, error) {
+	var value [4096]byte
+	n, err := unix.Fgetxattr(int(o.f.Fd()), name, value[:])
+	if err != nil {
+		return nil, err
+	}
+
+	return value[:n], nil
 }
 
 func (o *object) URL() string {

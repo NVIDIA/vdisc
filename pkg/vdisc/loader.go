@@ -28,6 +28,7 @@ import (
 
 	capnp "zombiezen.com/go/capnproto2"
 
+	"github.com/NVIDIA/vdisc/pkg/caching"
 	"github.com/NVIDIA/vdisc/pkg/iso9660"
 	"github.com/NVIDIA/vdisc/pkg/storage"
 	"github.com/NVIDIA/vdisc/pkg/vdisc/types"
@@ -43,7 +44,7 @@ type VDisc interface {
 	ExtentURL(lba iso9660.LogicalBlockAddress) (string, error)
 }
 
-func Load(url string, bcache *BufferCache) (VDisc, error) {
+func Load(url string, cache caching.Cache) (VDisc, error) {
 	baseURL, err := stdurl.Parse(url)
 	if err != nil {
 		return nil, err
@@ -115,9 +116,8 @@ func Load(url string, bcache *BufferCache) (VDisc, error) {
 			extents:   extents,
 			idx:       i,
 		}
-		if bcache != nil {
-			obj = bcache.Wrap(obj)
-		}
+
+		obj = cache.WithCaching(obj)
 
 		parts = append(parts, obj)
 		if padding > 0 {
@@ -133,6 +133,7 @@ func Load(url string, bcache *BufferCache) (VDisc, error) {
 	}
 
 	return &vdisc{
+		cache:         cache,
 		baseURL:       baseURL,
 		fsType:        fstype,
 		blockSize:     blockSize,
@@ -141,7 +142,6 @@ func Load(url string, bcache *BufferCache) (VDisc, error) {
 		extents:       extents,
 		extentIndices: extentIndices,
 		mmapHandle:    mmapHandle,
-		bcache:        bcache,
 	}, nil
 }
 
@@ -209,6 +209,7 @@ func downloadMemoryMapped(url string) ([]byte, io.Closer, error) {
 }
 
 type vdisc struct {
+	cache         caching.Cache
 	baseURL       *stdurl.URL
 	fsType        string
 	blockSize     uint16
@@ -217,7 +218,6 @@ type vdisc struct {
 	extents       vdisc_types_v1.Extent_List
 	extentIndices map[iso9660.LogicalBlockAddress]int
 	mmapHandle    io.Closer
-	bcache        *BufferCache
 }
 
 func (v *vdisc) Close() error {
@@ -254,11 +254,7 @@ func (v *vdisc) OpenExtent(lba iso9660.LogicalBlockAddress) (storage.Object, err
 		idx:       idx,
 	}
 
-	if v.bcache != nil {
-		obj = v.bcache.Wrap(obj)
-	}
-
-	return obj, nil
+	return v.cache.WithCaching(obj), nil
 }
 
 func (v *vdisc) ExtentURL(lba iso9660.LogicalBlockAddress) (string, error) {

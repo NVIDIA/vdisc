@@ -40,6 +40,10 @@ type Driver struct {
 	defaultTransport http.RoundTripper
 }
 
+func (d *Driver) Name() string {
+	return "swiftdriver"
+}
+
 func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	parsed, err := d.parseURL(url)
 	if err != nil {

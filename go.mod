@@ -3,7 +3,9 @@ module github.com/NVIDIA/vdisc
 go 1.13
 
 require (
+	github.com/OneOfOne/xxhash v1.2.5
 	github.com/alecthomas/kong v0.2.0
+	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf
 	github.com/aws/aws-sdk-go v1.24.5
 	github.com/badgerodon/collections v0.0.0-20130729185459-604e922904d3
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -28,6 +30,7 @@ require (
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20191009170203-06d7bd2c5f4f
 	zombiezen.com/go/capnproto2 v0.0.0-20181004142158-659aba4018b6
 )

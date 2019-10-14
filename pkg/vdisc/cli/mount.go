@@ -27,21 +27,16 @@ import (
 )
 
 type MountCmd struct {
-	Url            string                  `short:"u" help:"The URL of the vdisc" required:"true"`
-	Mountpoint     string                  `short:"p" help:"The path to mount the vdisc" required:"true" type:"existingdir"`
-	Mode           string                  `short:"m" help:"The mount mode" enum:"fuse,tcmu" default:"fuse"`
-	Fuse           isofuse.Options         `embed prefix:"fuse-"`
-	Tcmu           blockdev.TCMUConfig     `embed prefix:"tcmu-"`
-	TcmuVolumeName uuid.UUID               `help:"The name of the tcmu volume"`
-	Bcache         vdisc.BufferCacheConfig `embed prefix:"bcache-"`
+	Url            string              `short:"u" help:"The URL of the vdisc" required:"true"`
+	Mountpoint     string              `short:"p" help:"The path to mount the vdisc" required:"true" type:"existingdir"`
+	Mode           string              `short:"m" help:"The mount mode" enum:"fuse,tcmu" default:"fuse"`
+	Fuse           isofuse.Options     `embed prefix:"fuse-"`
+	Tcmu           blockdev.TCMUConfig `embed prefix:"tcmu-"`
+	TcmuVolumeName uuid.UUID           `help:"The name of the tcmu volume"`
 }
 
 func (cmd *MountCmd) Run(globals *Globals) error {
-	bcache, err := vdisc.NewBufferCache(cmd.Bcache)
-	if err != nil {
-		zap.L().Fatal("creating buffer cache", zap.Error(err))
-	}
-	v, err := vdisc.Load(cmd.Url, bcache)
+	v, err := vdisc.Load(cmd.Url, globalCache(&globals.Cache))
 	if err != nil {
 		zap.L().Fatal("loading vdisc", zap.Error(err))
 	}

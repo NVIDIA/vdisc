@@ -19,6 +19,8 @@ import (
 	"sync"
 
 	"github.com/google/btree"
+
+	"github.com/NVIDIA/vdisc/pkg/interval"
 )
 
 type part struct {
@@ -92,10 +94,13 @@ func (c *concatenated) ReadAt(p []byte, off int64) (n int, err error) {
 	}
 
 	start := off
-	end := minI64(off+int64(len(p)), c.size)
+	end := off + int64(len(p))
+	if c.size < end {
+		end = c.size
+	}
 	wantN := int(end - start)
 
-	x := interval{start, end}
+	x := interval.Interval{start, end}
 
 	var wg sync.WaitGroup
 	var workItems []*workItem
@@ -103,16 +108,16 @@ func (c *concatenated) ReadAt(p []byte, off int64) (n int, err error) {
 	c.parts.DescendLessOrEqual(part{off + int64(len(p)) - 1, nil}, func(i btree.Item) bool {
 		part := i.(part)
 
-		y := interval{part.Offset, part.Offset + part.Obj.Size()}
-		z, ok := intersection(x, y)
+		y := interval.Interval{part.Offset, part.Offset + part.Obj.Size()}
+		z, ok := interval.Intersection(x, y)
 		if !ok {
 			return false
 		}
 
 		workItem := &workItem{
 			obj: part.Obj,
-			dst: p[z.start-off : z.end-off],
-			off: z.start - part.Offset,
+			dst: p[z.Start-off : z.End-off],
+			off: z.Start - part.Offset,
 		}
 
 		if c.concurrent {
@@ -184,32 +189,4 @@ type workItem struct {
 	off int64
 	n   int
 	err error
-}
-
-type interval struct {
-	start int64 // inclusive
-	end   int64 // exclusive
-}
-
-func intersection(a, b interval) (*interval, bool) {
-	start := maxI64(a.start, b.start)
-	end := minI64(a.end, b.end)
-	if start < end {
-		return &interval{start, end}, true
-	}
-	return nil, false
-}
-
-func minI64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxI64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }

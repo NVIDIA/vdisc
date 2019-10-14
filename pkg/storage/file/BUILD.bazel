@@ -4,10 +4,14 @@ go_library(
     name = "go_default_library",
     srcs = [
         "file.go",
+        "lock.go",
         "object.go",
         "writer.go",
     ],
     importpath = "github.com/NVIDIA/vdisc/pkg/storage/file",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/storage/driver:go_default_library"],
+    deps = [
+        "//pkg/storage/driver:go_default_library",
+        "@org_golang_x_sys//unix:go_default_library",
+    ],
 )

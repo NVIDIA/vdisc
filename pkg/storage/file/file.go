@@ -15,17 +15,23 @@ package filedriver
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	stdurl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 // Driver is the file URI scheme storage driver.
 type Driver struct{}
+
+func (d *Driver) Name() string {
+	return "filedriver"
+}
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	path, err := urlToPath(url)
@@ -59,6 +65,9 @@ func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, e
 	}
 
 	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
 	f, err := ioutil.TempFile(dir, ".tmp.filedriver")
 	if err != nil {
 		return nil, err
@@ -100,6 +109,14 @@ func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error)
 	}
 	defer dir.Close()
 	return dir.Readdir(0)
+}
+
+func (d *Driver) Lock(ctx context.Context, url string) (io.Closer, error) {
+	return lock(ctx, url, syscall.LOCK_EX)
+}
+
+func (d *Driver) RLock(ctx context.Context, url string) (io.Closer, error) {
+	return lock(ctx, url, syscall.LOCK_SH)
 }
 
 func urlToPath(url string) (string, error) {

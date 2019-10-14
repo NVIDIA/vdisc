@@ -15,8 +15,9 @@ package storage
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
-	"sync"
 
 	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 
@@ -54,8 +55,6 @@ func Open(url string) (Object, error) {
 
 // Open opens the Object with the context and declared size.
 func OpenContextSize(ctx context.Context, url string, size int64) (Object, error) {
-	registerDefaultsOnce.Do(registerDefaults)
-
 	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
@@ -70,13 +69,17 @@ func Create(url string) (ObjectWriter, error) {
 
 // Create an ObjectWriter handle
 func CreateContext(ctx context.Context, url string) (ObjectWriter, error) {
-	registerDefaultsOnce.Do(registerDefaults)
-
 	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
 	}
-	return drvr.Create(ctx, url)
+
+	switch mdrvr := drvr.(type) {
+	case driver.Writable:
+		return mdrvr.Create(ctx, url)
+	default:
+		return nil, errors.New(drvr.Name() + ": create not implemented")
+	}
 }
 
 // Remove an object
@@ -86,13 +89,17 @@ func Remove(url string) error {
 
 // Remove an object
 func RemoveContext(ctx context.Context, url string) error {
-	registerDefaultsOnce.Do(registerDefaults)
-
 	drvr, err := driver.Find(url)
 	if err != nil {
 		return err
 	}
-	return drvr.Remove(ctx, url)
+
+	switch mdrvr := drvr.(type) {
+	case driver.Removable:
+		return mdrvr.Remove(ctx, url)
+	default:
+		return errors.New(drvr.Name() + ": remove not implemented")
+	}
 }
 
 // Stat returns a FileInfo describing the Object
@@ -102,8 +109,6 @@ func Stat(url string) (os.FileInfo, error) {
 
 // Stat returns a FileInfo describing the Object
 func StatContext(ctx context.Context, url string) (os.FileInfo, error) {
-	registerDefaultsOnce.Do(registerDefaults)
-
 	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
@@ -120,13 +125,62 @@ func Readdir(url string) ([]os.FileInfo, error) {
 // Readdir reads the contents of the directory and returns a slice of
 // FileInfo values, as would be returned by Stat, in directory order.
 func ReaddirContext(ctx context.Context, url string) ([]os.FileInfo, error) {
-	registerDefaultsOnce.Do(registerDefaults)
-
 	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
 	}
-	return drvr.Readdir(ctx, url)
+
+	switch rdrvr := drvr.(type) {
+	case driver.Readdirable:
+		return rdrvr.Readdir(ctx, url)
+	default:
+		return nil, errors.New(drvr.Name() + ": readdir not implemented")
+	}
+}
+
+// Lock acquires an advisory exclusive lock on the object
+// specified, potentially creating it if it does not already
+// exist.
+func Lock(url string) (io.Closer, error) {
+	return LockContext(context.Background(), url)
+}
+
+// Lock acquires an advisory exclusive lock on the object
+// specified, potentially creating it if it does not already
+// exist.
+func LockContext(ctx context.Context, url string) (io.Closer, error) {
+	drvr, err := driver.Find(url)
+	if err != nil {
+		return nil, err
+	}
+
+	switch ldrvr := drvr.(type) {
+	case driver.Lockable:
+		return ldrvr.Lock(ctx, url)
+	default:
+		return nil, errors.New(drvr.Name() + ": lock not implemented")
+	}
+}
+
+// RLock acquires an advisory shared lock on the object specified,
+// potentially creating it if it does not already exist.
+func RLock(url string) (io.Closer, error) {
+	return RLockContext(context.Background(), url)
+}
+
+// RLock acquires an advisory shared lock on the object specified,
+// potentially creating it if it does not already exist.
+func RLockContext(ctx context.Context, url string) (io.Closer, error) {
+	drvr, err := driver.Find(url)
+	if err != nil {
+		return nil, err
+	}
+	switch ldrvr := drvr.(type) {
+	case driver.Lockable:
+		return ldrvr.RLock(ctx, url)
+	default:
+		return nil, errors.New(drvr.Name() + ": rlock not implemented")
+	}
 }
 
 // WithURL gives a URL to an AnonymousObject
@@ -163,21 +217,11 @@ func (wu *withURL) URL() string {
 	return wu.url
 }
 
-var disableRegisterDefaults bool
-var registerDefaultsOnce sync.Once
-
-// DisableDefaultDrivers is typically used in tests to disable registring the default storage drivers
-func DisableDefaultDrivers() {
-	disableRegisterDefaults = true
-}
-
-func registerDefaults() {
-	if !disableRegisterDefaults {
-		datadriver.RegisterDefaultDriver()
-		filedriver.RegisterDefaultDriver()
-		httpdriver.RegisterDefaultDriver()
-		s3driver.RegisterDefaultDriver()
-		swiftdriver.RegisterDefaultDriver()
-		zerodriver.RegisterDefaultDriver()
-	}
+func init() {
+	datadriver.RegisterDefaultDriver()
+	filedriver.RegisterDefaultDriver()
+	httpdriver.RegisterDefaultDriver()
+	s3driver.RegisterDefaultDriver()
+	swiftdriver.RegisterDefaultDriver()
+	zerodriver.RegisterDefaultDriver()
 }

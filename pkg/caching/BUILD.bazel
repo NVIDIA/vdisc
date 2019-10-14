@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cache.go",
+        "disk.go",
+        "mem.go",
+        "readahead.go",
+    ],
+    importpath = "github.com/NVIDIA/vdisc/pkg/caching",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/interval:go_default_library",
+        "//pkg/storage:go_default_library",
+        "//pkg/storage/driver:go_default_library",
+        "@com_github_hashicorp_golang_lru//simplelru:go_default_library",
+        "@com_github_oneofone_xxhash//:go_default_library",
+        "@org_golang_x_sync//semaphore:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "disk_test.go",
+        "mem_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/storage:go_default_library",
+        "//pkg/storage/data:go_default_library",
+        "//pkg/storage/driver:go_default_library",
+        "//pkg/storage/mock:go_default_library",
+        "//pkg/storage/zero:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_stretchr_testify//mock:go_default_library",
+    ],
+)

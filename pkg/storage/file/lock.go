@@ -14,41 +14,38 @@
 package filedriver
 
 import (
+	"context"
+	"io"
 	"os"
-
-	"golang.org/x/sys/unix"
-
-	"github.com/NVIDIA/vdisc/pkg/storage/driver"
+	"path/filepath"
+	"syscall"
 )
 
-type objectWriter struct {
-	path string
-	f    *os.File
-}
-
-func (ow *objectWriter) Abort() {
-	os.Remove(ow.f.Name())
-	// TODO: log err
-	ow.f.Close()
-}
-
-func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
-	if err := ow.f.Sync(); err != nil {
+func lock(ctx context.Context, url string, flag int) (io.Closer, error) {
+	path, err := urlToPath(url)
+	if err != nil {
 		return nil, err
 	}
-
-	if err := os.Rename(ow.f.Name(), ow.path); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
-
-	return driver.NewCommitInfo(ow.path), nil
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDONLY, os.FileMode(0600))
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), flag); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return &unlock{f}, nil
 }
 
-func (ow *objectWriter) Write(p []byte) (n int, err error) {
-	n, err = ow.f.Write(p)
-	return
+type unlock struct {
+	f *os.File
 }
 
-func (ow *objectWriter) SetXattr(name string, value []byte) error {
-	return unix.Fsetxattr(int(ow.f.Fd()), name, value, 0)
+func (u *unlock) Close() error {
+	defer u.f.Close()
+	return syscall.Flock(int(u.f.Fd()), syscall.LOCK_UN)
 }

@@ -21,18 +21,20 @@ import (
 )
 
 type Globals struct {
-	LogLevel string `help:"Set the logging level (debug|info|warn|error)" default:"info"`
+	LogLevel string      `help:"Set the logging level (debug|info|warn|error)" default:"info"`
+	Cache    CacheConfig `embed prefix:"cache-"`
 }
 
 type CLI struct {
 	Globals
 
 	Burn    BurnCmd    `cmd help:"Burn creates a new vdisc"`
-	Mount   MountCmd   `cmd help:"Mount a vdisc"`
-	Inspect InspectCmd `cmd help:"Inspect a vdisc"`
-	Tree    TreeCmd    `cmd help:"Print the file system hierarchy as a tree"`
-	Ls      LsCmd      `cmd help:"List directory contents"`
+	Cache   CacheCmd   `cmd help:"Cache management"`
 	Cp      CpCmd      `cmd help:"Copy a file from a vdisc to a local path"`
+	Inspect InspectCmd `cmd help:"Inspect a vdisc"`
+	Ls      LsCmd      `cmd help:"List directory contents"`
+	Mount   MountCmd   `cmd help:"Mount a vdisc"`
+	Tree    TreeCmd    `cmd help:"Print the file system hierarchy as a tree"`
 	Version VersionCmd `cmd help:"Print the client version information"`
 }
 
@@ -52,4 +54,9 @@ func UUIDDecoder(ctx *kong.DecodeContext, target reflect.Value) error {
 	}
 	target.Set(reflect.ValueOf(u))
 	return nil
+}
+
+func UUIDTypeMapper() kong.Option {
+	var u uuid.UUID
+	return kong.TypeMapper(reflect.TypeOf(u), kong.MapperFunc(UUIDDecoder))
 }

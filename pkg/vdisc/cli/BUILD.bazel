@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "burn.go",
+        "cache.go",
+        "cacheutil.go",
         "cli.go",
         "cp.go",
         "inspect.go",
@@ -19,11 +21,14 @@ go_library(
     x_defs = {"github.com/NVIDIA/vdisc/pkg/vdisc/cli.Version": "{STABLE_SEMVER_FROM_GIT}"},
     deps = [
         "//pkg/blockdev:go_default_library",
+        "//pkg/caching:go_default_library",
         "//pkg/iso9660:go_default_library",
         "//pkg/isofuse:go_default_library",
+        "//pkg/safecast:go_default_library",
         "//pkg/storage:go_default_library",
         "//pkg/vdisc:go_default_library",
         "@com_github_alecthomas_kong//:go_default_library",
+        "@com_github_alecthomas_units//:go_default_library",
         "@com_github_fatih_color//:go_default_library",
         "@com_github_google_uuid//:go_default_library",
         "@org_uber_go_zap//:go_default_library",

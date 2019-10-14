@@ -318,6 +318,13 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_oneofone_xxhash",
+    importpath = "github.com/OneOfOne/xxhash",
+    sum = "h1:zl/OfRA6nftbBK9qTohYBJ5xvw6C/oNKizR7cZGl3cI=",
+    version = "v1.2.5",
+)
+
+go_repository(
     name = "com_github_philhofer_fwd",
     importpath = "github.com/philhofer/fwd",
     sum = "h1:UbZqGr5Y38ApvM/V/jEljVxwocdweyH+vmYvRPBnbqQ=",

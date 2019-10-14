@@ -9,6 +9,7 @@ go_library(
     importpath = "github.com/NVIDIA/vdisc/pkg/storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/interval:go_default_library",
         "//pkg/storage/data:go_default_library",
         "//pkg/storage/driver:go_default_library",
         "//pkg/storage/file:go_default_library",

@@ -1,15 +1,5 @@
 #!/bin/bash
 
-if [ "$NUCLEUS_BUILD_CONTEXT" = "verify" ]; then
-    echo "HEAD verify"
-    echo "SHORT verify"
-    echo "STABLE_GIT_STATUS verify"
-    echo "STABLE_GIT_SHA_SHORT verify"
-    echo "STABLE_GIT_NUM_COMMITS 1"
-    echo "STABLE_SEMVER_FROM_GIT 1.0.1+gitverify"
-    exit
-fi
-
 HEAD=$(git rev-parse HEAD)
 SHORT=$(git rev-parse --short HEAD)
 

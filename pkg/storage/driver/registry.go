@@ -26,6 +26,22 @@ var (
 	drivers   = make(map[string]Driver)
 )
 
+type Undo func()
+
+// Temporarily unregister all the default drivers until Undo is called.
+func ClearRegistry() Undo {
+	driversMu.Lock()
+	defer driversMu.Unlock()
+
+	tmp := drivers
+	drivers = make(map[string]Driver)
+	return func() {
+		driversMu.Lock()
+		defer driversMu.Unlock()
+		drivers = tmp
+	}
+}
+
 // Register makes a storage driver available by the provided URL scheme.
 // If Register is called twice with the same scheme or if driver is nil,
 // it panics.

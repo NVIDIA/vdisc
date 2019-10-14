@@ -14,10 +14,7 @@
 package main
 
 import (
-	"reflect"
-
 	"github.com/alecthomas/kong"
-	"github.com/google/uuid"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -47,12 +44,13 @@ func main() {
 
 	cli := vdisc_cli.CLI{}
 
-	var u uuid.UUID
 	ctx := kong.Parse(&cli,
 		kong.Name("vdisc"),
 		kong.Description("A virtual disc image tool"),
 		kong.UsageOnError(),
-		kong.TypeMapper(reflect.TypeOf(u), kong.MapperFunc(vdisc_cli.UUIDDecoder)),
+		vdisc_cli.UUIDTypeMapper(),
+		vdisc_cli.SITypeMapper(),
+		vdisc_cli.GcThresholdTypeMapper(),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 		}),
@@ -62,6 +60,7 @@ func main() {
 	var ll zapcore.Level
 	ll.Set(cli.Globals.LogLevel)
 	logAtomic.SetLevel(ll)
+
 	if err := ctx.Run(&cli.Globals); err != nil {
 		logger.Fatal("run", zap.Error(err))
 	}

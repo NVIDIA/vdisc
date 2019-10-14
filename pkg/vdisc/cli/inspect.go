@@ -26,16 +26,11 @@ import (
 )
 
 type InspectCmd struct {
-	Url    string                  `short:"u" help:"The URL of the vdisc" required:"true"`
-	Bcache vdisc.BufferCacheConfig `embed prefix:"bcache-"`
+	Url string `short:"u" help:"The URL of the vdisc" required:"true"`
 }
 
 func (cmd *InspectCmd) Run(globals *Globals) error {
-	bcache, err := vdisc.NewBufferCache(cmd.Bcache)
-	if err != nil {
-		zap.L().Fatal("creating buffer cache", zap.Error(err))
-	}
-	v, err := vdisc.Load(cmd.Url, bcache)
+	v, err := vdisc.Load(cmd.Url, globalCache(&globals.Cache))
 	if err != nil {
 		zap.L().Fatal("loading vdisc", zap.Error(err))
 	}

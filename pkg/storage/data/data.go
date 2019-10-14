@@ -16,7 +16,6 @@ package datadriver
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
 
@@ -28,6 +27,10 @@ import (
 // Driver is the data URI scheme storage driver.
 // See https://tools.ietf.org/html/rfc2397.
 type Driver struct{}
+
+func (d *Driver) Name() string {
+	return "datadriver"
+}
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	du, err := dataurl.DecodeString(url)
@@ -54,14 +57,6 @@ func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, e
 	}, nil
 }
 
-func (d *Driver) Remove(ctx context.Context, url string) error {
-	_, err := dataurl.DecodeString(url)
-	if err != nil {
-		return err
-	}
-	return errors.New("datadriver: remove not implemented")
-}
-
 func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	du, err := dataurl.DecodeString(url)
 	if err != nil {
@@ -69,14 +64,6 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	}
 
 	return &finfo{du}, nil
-}
-
-func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
-	_, err := dataurl.DecodeString(url)
-	if err != nil {
-		return nil, err
-	}
-	return nil, errors.New("datadriver: readdir not implemented")
 }
 
 func RegisterDefaultDriver() {

@@ -44,6 +44,10 @@ type Driver struct {
 	bucketRegionCache map[string]regionPromise
 }
 
+func (d *Driver) Name() string {
+	return "s3driver"
+}
+
 func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	parsed, err := d.parseURL(url)
 	if err != nil {
