@@ -21,6 +21,8 @@ import (
 	stdurl "net/url"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/NVIDIA/vdisc/pkg/httputil"
 	"github.com/NVIDIA/vdisc/pkg/storage"
 )
@@ -85,4 +87,8 @@ func init() {
 	}
 	storage.Register("http", d)
 	storage.Register("https", d)
+}
+
+func logger() *zap.Logger {
+	return zap.L().Named("httpdriver")
 }

@@ -22,6 +22,8 @@ import (
 	stdurl "net/url"
 	"os"
 
+	"go.uber.org/zap"
+
 	"github.com/NVIDIA/vdisc/pkg/httputil"
 	"github.com/NVIDIA/vdisc/pkg/safecast"
 	"github.com/NVIDIA/vdisc/pkg/storage"
@@ -140,6 +142,8 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 		return
 	}
 	defer resp.Body.Close()
+
+	logger().Debug("GET", zap.String("url", o.u.String()), zap.String("range", fmt.Sprintf("bytes=%d-%d", off, end-1)), zap.Int("status", resp.StatusCode))
 
 	if resp.StatusCode != 206 {
 		// throw away the body so the connection can be reused
