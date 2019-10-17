@@ -65,7 +65,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return &Dir{d.vdisc, d.w, pth, fi}, nil
 	}
 
-	obj, err := d.vdisc.OpenExtent(fi.Extent(), fi.Size())
+	obj, err := d.vdisc.OpenExtent(fi.Extent())
 	if err != nil {
 		zap.L().Error("lookup", zap.Error(err))
 		return nil, fuse.EIO

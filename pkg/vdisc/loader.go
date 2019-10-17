@@ -39,7 +39,7 @@ type VDisc interface {
 	FsType() string
 	BlockSize() uint16
 	Image() storage.AnonymousObject
-	OpenExtent(lba iso9660.LogicalBlockAddress, size int64) (storage.Object, error)
+	OpenExtent(lba iso9660.LogicalBlockAddress) (storage.Object, error)
 	ExtentURL(lba iso9660.LogicalBlockAddress) (string, error)
 }
 
@@ -109,13 +109,12 @@ func Load(url string, bcache *BufferCache) (VDisc, error) {
 		}
 
 		var obj storage.Object
-		size := int64(blocks)*int64(blockSize) - int64(padding)
 		obj = &extent{
-			baseURL: baseURL,
-			uris:    uris,
-			extents: extents,
-			idx:     i,
-			size:    size,
+			blockSize: blockSize,
+			baseURL:   baseURL,
+			uris:      uris,
+			extents:   extents,
+			idx:       i,
 		}
 		if bcache != nil {
 			obj = bcache.Wrap(obj)
@@ -241,7 +240,7 @@ func (v *vdisc) Image() storage.AnonymousObject {
 	return v.image
 }
 
-func (v *vdisc) OpenExtent(lba iso9660.LogicalBlockAddress, size int64) (storage.Object, error) {
+func (v *vdisc) OpenExtent(lba iso9660.LogicalBlockAddress) (storage.Object, error) {
 	idx, ok := v.extentIndices[lba]
 	if !ok {
 		return nil, fmt.Errorf("unable to open file: invalid extent - %d", lba)
@@ -249,11 +248,11 @@ func (v *vdisc) OpenExtent(lba iso9660.LogicalBlockAddress, size int64) (storage
 
 	var obj storage.Object
 	obj = &extent{
-		baseURL: v.baseURL,
-		uris:    v.uris,
-		extents: v.extents,
-		idx:     idx,
-		size:    size,
+		blockSize: v.blockSize,
+		baseURL:   v.baseURL,
+		uris:      v.uris,
+		extents:   v.extents,
+		idx:       idx,
 	}
 
 	if v.bcache != nil {
@@ -270,11 +269,11 @@ func (v *vdisc) ExtentURL(lba iso9660.LogicalBlockAddress) (string, error) {
 	}
 
 	ext := &extent{
-		baseURL: v.baseURL,
-		uris:    v.uris,
-		extents: v.extents,
-		idx:     idx,
-		size:    -1,
+		blockSize: v.blockSize,
+		baseURL:   v.baseURL,
+		uris:      v.uris,
+		extents:   v.extents,
+		idx:       idx,
 	}
 	return ext.URL(), nil
 }

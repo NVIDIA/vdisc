@@ -27,13 +27,13 @@ import (
 )
 
 type extent struct {
-	baseURL *stdurl.URL
-	uris    vdisc_types_v1.ITrie_List
-	extents vdisc_types_v1.Extent_List
-	idx     int
-	size    int64
-	pos     int64
-	closed  bool
+	blockSize uint16
+	baseURL   *stdurl.URL
+	uris      vdisc_types_v1.ITrie_List
+	extents   vdisc_types_v1.Extent_List
+	idx       int
+	pos       int64
+	closed    bool
 }
 
 func (e *extent) Close() error {
@@ -78,7 +78,14 @@ func (e *extent) URL() string {
 }
 
 func (e *extent) Size() int64 {
-	return e.size
+	ext := e.extents.At(e.idx)
+	blocks := ext.Blocks()
+	padding := ext.Padding()
+	if blocks == 0 {
+		return 0
+	}
+
+	return int64(blocks)*int64(e.blockSize) - int64(padding)
 }
 
 func (e *extent) Read(p []byte) (n int, err error) {
@@ -94,7 +101,7 @@ func (e *extent) ReadAt(p []byte, off int64) (n int, err error) {
 	}
 
 	var obj storage.Object
-	obj, err = storage.OpenContextSize(context.Background(), e.URL(), e.size)
+	obj, err = storage.OpenContextSize(context.Background(), e.URL(), e.Size())
 	if err != nil {
 		return
 	}
@@ -107,22 +114,24 @@ func (e *extent) Seek(offset int64, whence int) (int64, error) {
 		return 0, os.ErrClosed
 	}
 
+	size := e.Size()
+
 	switch whence {
 	case io.SeekCurrent:
 		e.pos = e.pos + offset
 	case io.SeekStart:
 		e.pos = offset
 	case io.SeekEnd:
-		if e.size < 0 {
+		if size < 0 {
 			return 0, errors.New("unknown length")
 		}
-		e.pos = e.size + offset
+		e.pos = size + offset
 	}
 
 	if e.pos < 0 {
 		e.pos = 0
-	} else if e.size >= 0 && e.pos > e.size {
-		e.pos = e.size
+	} else if size >= 0 && e.pos > size {
+		e.pos = size
 	}
 
 	return e.pos, nil
