@@ -37,15 +37,43 @@ type Driver struct {
 }
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
-	u, err := stdurl.Parse(url)
+	u, err := d.parseURL(url)
 	if err != nil {
 		return nil, err
+	}
+
+	c := d.newClient(ctx)
+	return NewObject(c, url, u, size), nil
+}
+
+func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+	return nil, errors.New("httpdriver: create not implemented")
+}
+
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	u, err := d.parseURL(url)
+	if err != nil {
+		return err
+	}
+
+	c := d.newClient(ctx)
+	return Delete(c, url, u)
+}
+
+func (d *Driver) parseURL(url string) (*stdurl.URL, error) {
+	u, err := stdurl.Parse(url)
+	if err != nil {
+		return nil, fmt.Errorf("httpdriver: parsing url: %+v", err)
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("httpdriver: unsupported URI scheme %q", u.Scheme)
 	}
 
+	return u, nil
+}
+
+func (d *Driver) newClient(ctx context.Context) *http.Client {
 	c := &http.Client{}
 	if timeout, ok := TimeoutFromCtx(ctx); ok {
 		c.Timeout = *timeout
@@ -58,17 +86,7 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	} else {
 		c.Transport = d.defaultTransport
 	}
-
-	anon, err := NewObject(c, u, size)
-	if err != nil {
-		return nil, err
-	}
-
-	return storage.WithURL(anon, url), nil
-}
-
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
-	return nil, errors.New("httpdriver: create not implemented")
+	return c
 }
 
 func init() {

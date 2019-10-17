@@ -21,6 +21,7 @@ import (
 	"net/http"
 	stdurl "net/url"
 	"os"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -31,65 +32,29 @@ import (
 
 // NewObject opens an HTTP URL as an Object. If size is negative,
 // a HEAD request will be performed to determine the actual size.
-func NewObject(client *http.Client, u *stdurl.URL, size int64) (storage.AnonymousObject, error) {
-	if size < 0 {
-		resp, err := client.Head(u.String())
-		if err != nil {
-			return nil, err
-		}
-
-		defer resp.Body.Close()
-		io.Copy(ioutil.Discard, resp.Body)
-
-		if resp.StatusCode == 404 {
-			return nil, os.ErrNotExist
-		}
-
-		if resp.StatusCode == 405 {
-			// Server doesn't support HEAD, download the whole resource up front.
-			resp, err := client.Get(u.String())
-			if err != nil {
-				return nil, err
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
-				return nil, fmt.Errorf("io: http %d for %s", resp.StatusCode, u)
-			}
-			body, err := ioutil.ReadAll(resp.Body)
-			return &static{bytes.NewReader(body)}, nil
-		}
-
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("io: http %d for %s", resp.StatusCode, u)
-		}
-
-		if resp.ContentLength < 0 {
-			return nil, fmt.Errorf("io: bad content length %d for %s", resp.ContentLength, u)
-		}
-		size = resp.ContentLength
-	}
-
+func NewObject(client *http.Client, url string, u *stdurl.URL, size int64) storage.Object {
 	return &object{
 		client: client,
+		url:    url,
 		u:      u,
 		size:   size,
-	}, nil
-}
-
-type static struct {
-	*bytes.Reader
-}
-
-func (s *static) Close() error {
-	return nil
+	}
 }
 
 type object struct {
-	client *http.Client
-	u      *stdurl.URL
-	size   int64
-	pos    int64
-	closed bool
+	client   *http.Client
+	url      string
+	u        *stdurl.URL
+	size     int64
+	sizeOnce sync.Once
+	sizeErr  error
+	static   *bytes.Reader
+	pos      int64
+	closed   bool
+}
+
+func (o *object) URL() string {
+	return o.url
 }
 
 func (o *object) Close() error {
@@ -98,6 +63,55 @@ func (o *object) Close() error {
 }
 
 func (o *object) Size() int64 {
+	o.sizeOnce.Do(func() {
+		if o.size < 0 {
+			resp, err := o.client.Head(o.u.String())
+			if err != nil {
+				o.sizeErr = err
+				return
+			}
+
+			defer resp.Body.Close()
+			io.Copy(ioutil.Discard, resp.Body)
+
+			if resp.StatusCode == 404 {
+				o.sizeErr = os.ErrNotExist
+				return
+			}
+
+			if resp.StatusCode == 405 {
+				// Server doesn't support HEAD, download the whole resource up front.
+				resp, err := o.client.Get(o.u.String())
+				if err != nil {
+					o.sizeErr = err
+					return
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != 200 {
+					o.sizeErr = fmt.Errorf("http get %q: HTTP %d", o.url, resp.StatusCode)
+					return
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					o.sizeErr = fmt.Errorf("http get %q: %+v", o.url, err)
+					return
+				}
+				o.static = bytes.NewReader(body)
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				o.sizeErr = fmt.Errorf("http head %q: HTTP %d", o.url, resp.StatusCode)
+				return
+			}
+
+			if resp.ContentLength < 0 {
+				o.sizeErr = fmt.Errorf("http head %q: bad content length %d", o.url, resp.ContentLength)
+				return
+			}
+			o.size = resp.ContentLength
+		}
+	})
 	return o.size
 }
 
@@ -117,14 +131,26 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 		return
 	}
 
+	// make sure we've computed the object size
+	o.Size()
+
+	if o.sizeErr != nil {
+		err = o.sizeErr
+		return
+	}
+
+	if o.static != nil {
+		return o.static.ReadAt(p, off)
+	}
+
 	if off >= o.size {
 		err = io.EOF
 		return
 	}
 
-	req, err := http.NewRequest("GET", o.u.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, o.u.String(), nil)
 	if err != nil {
-		err = fmt.Errorf("io: bad url?: %#v: %s", o.u, err)
+		err = fmt.Errorf("http get %q: %+v", o.url, err)
 		return
 	}
 
@@ -138,12 +164,12 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 
 	resp, err := o.client.Do(req)
 	if err != nil {
-		err = fmt.Errorf("io: http get: %s for %s", err, o.u)
+		err = fmt.Errorf("http get %q: %+v", o.url, err)
 		return
 	}
 	defer resp.Body.Close()
 
-	logger().Debug("GET", zap.String("url", o.u.String()), zap.String("range", fmt.Sprintf("bytes=%d-%d", off, end-1)), zap.Int("status", resp.StatusCode))
+	logger().Debug("GET", zap.String("url", o.url), zap.String("range", fmt.Sprintf("bytes=%d-%d", off, end-1)), zap.Int("status", resp.StatusCode))
 
 	if resp.StatusCode != 206 {
 		// throw away the body so the connection can be reused
@@ -152,34 +178,34 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 			err = os.ErrNotExist
 			return
 		}
-		err = fmt.Errorf("io: http get: http %d for %s", resp.StatusCode, o.u)
+		err = fmt.Errorf("http get %q: HTTP %d", o.url, resp.StatusCode)
 		return
 	}
 
 	contentRange, err := httputil.GetContentRange(resp)
 	if err != nil {
-		err = fmt.Errorf("io: http get: %s for %s", err, o.u)
+		err = fmt.Errorf("http get %q: %+v", o.url, err)
 		return
 	}
 
 	if contentRange.Total < safecast.Int64ToUint64(o.size) {
-		err = fmt.Errorf("io: http get: content-range total %d less than expected size %d for %s", err, contentRange.Total, o.size, o.u)
+		err = fmt.Errorf("http get %q: content-range total %d less than expected size %d", o.url, contentRange.Total, o.size)
 		return
 	}
 
 	if safecast.Uint64ToInt64(contentRange.Len()) != resp.ContentLength {
-		err = fmt.Errorf("io: http get: mismatch: Content-Range total %d, Content-Length %d for %s", err, contentRange.Total, resp.ContentLength, o.u)
+		err = fmt.Errorf("http get %q: mismatch: Content-Range total %d, Content-Length %d", o.url, contentRange.Total, resp.ContentLength)
 		return
 	}
 
 	if contentRange.First != safecast.Int64ToUint64(off) || contentRange.Last != safecast.Int64ToUint64(end-1) {
-		err = fmt.Errorf("io: http get: range/content-range mismatch for %s: \"range=%d-%d\" vs %q", o.u, off, end-1, resp.Header.Get("Content-Range"))
+		err = fmt.Errorf("http get %q: range/content-range mismatch: \"range=%d-%d\" vs %q", o.url, off, end-1, resp.Header.Get("Content-Range"))
 		return
 	}
 
 	n, err = io.ReadFull(resp.Body, p[:resp.ContentLength])
 	if err == nil && safecast.IntToUint64(n) < contentRange.Len() {
-		err = fmt.Errorf("io: http get: Content-Length=%d, read=%d, %s for %s", resp.ContentLength, n, io.ErrUnexpectedEOF, o.u)
+		err = fmt.Errorf("http get %q: Content-Length=%d, read=%d, %s", o.url, resp.ContentLength, n, io.ErrUnexpectedEOF)
 		return
 	}
 

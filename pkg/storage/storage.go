@@ -75,6 +75,9 @@ type Driver interface {
 
 	// Create an ObjectWriter handle
 	Create(ctx context.Context, url string) (ObjectWriter, error)
+
+	// Remove an object
+	Remove(ctx context.Context, url string) error
 }
 
 var (
@@ -116,26 +119,9 @@ func Open(url string) (Object, error) {
 
 // Open opens the Object with the context and declared size.
 func OpenContextSize(ctx context.Context, url string, size int64) (Object, error) {
-	u, err := stdurl.Parse(url)
+	drvr, err := findDriver(url)
 	if err != nil {
 		return nil, err
-	}
-
-	if u.Scheme == "" {
-		u.Scheme = "file"
-		if !strings.HasPrefix(u.Path, "/") {
-			u.Opaque = u.Path
-			u.Path = ""
-			u.RawPath = ""
-		}
-	}
-
-	driversMu.RLock()
-	defer driversMu.RUnlock()
-
-	drvr, ok := drivers[u.Scheme]
-	if !ok {
-		return nil, fmt.Errorf("storage: unknown driver %q (forgotten import?)", u.Scheme)
 	}
 	return drvr.Open(ctx, url, size)
 }
@@ -147,6 +133,28 @@ func Create(url string) (ObjectWriter, error) {
 
 // Create an ObjectWriter handle
 func CreateContext(ctx context.Context, url string) (ObjectWriter, error) {
+	drvr, err := findDriver(url)
+	if err != nil {
+		return nil, err
+	}
+	return drvr.Create(ctx, url)
+}
+
+// Remove an object
+func Remove(url string) error {
+	return RemoveContext(context.Background(), url)
+}
+
+// Remove an object
+func RemoveContext(ctx context.Context, url string) error {
+	drvr, err := findDriver(url)
+	if err != nil {
+		return err
+	}
+	return drvr.Remove(ctx, url)
+}
+
+func findDriver(url string) (Driver, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {
 		return nil, err
@@ -168,7 +176,7 @@ func CreateContext(ctx context.Context, url string) (ObjectWriter, error) {
 	if !ok {
 		return nil, fmt.Errorf("storage: unknown driver %q (forgotten import?)", u.Scheme)
 	}
-	return drvr.Create(ctx, url)
+	return drvr, nil
 }
 
 // WithURL gives a URL to an AnonymousObject

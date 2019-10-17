@@ -39,26 +39,83 @@ type Driver struct {
 }
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	c := d.newClient(ctx, parsed.Account)
+
+	return httpdriver.NewObject(c, url, parsed.URL, size), nil
+}
+
+func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	creds := credentials.NewCredentials(NewSwiftEnvProvider(parsed.Account))
+
+	region, ok := RegionFromCtx(ctx)
+	if !ok {
+		region = GetSwiftRegion()
+	}
+
+	config := aws.NewConfig().
+		WithRegion(region).
+		WithEndpoint(fmt.Sprintf("https://%s", parsed.URL.Host)).
+		WithS3ForcePathStyle(true).
+		WithCredentials(creds).
+		WithMaxRetries(100)
+
+	svc := s3.New(d.sess, config)
+
+	return s3driver.NewObjectWriter(svc, parsed.Container, parsed.Key, url), nil
+}
+
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return err
+	}
+
+	c := d.newClient(ctx, parsed.Account)
+
+	return httpdriver.Delete(c, url, parsed.URL)
+}
+
+func (d *Driver) parseURL(url string) (*parsedURL, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {
 		return nil, err
 	}
 
-	if !u.IsAbs() {
-		return nil, fmt.Errorf("swiftdriver: URIs must be absolute")
+	if u.Scheme != "swift" {
+		return nil, fmt.Errorf("swiftdriver: unexpected scheme %q", u.Scheme)
 	}
 
-	u.Scheme = "https"
+	if !u.IsAbs() {
+		return nil, fmt.Errorf("swiftdriver: url must be absolute: %q", url)
+	}
 
 	parts := strings.Split(u.Path, "/")
 	if len(parts) < 4 || len(parts[0]) != 0 {
-		return nil, fmt.Errorf("swiftdriver: invalid URL: %q", url)
+		return nil, fmt.Errorf("swiftdriver: invalid url: %q", url)
 	}
 
-	// extract the account portion of the path.
-	account := parts[1]
+	u.Scheme = "https"
 	u.Path = "/" + strings.Join(parts[2:], "/")
 
+	return &parsedURL{
+		URL:       u,
+		Account:   parts[1],
+		Container: parts[2],
+		Key:       "/" + strings.Join(parts[3:], "/"),
+	}, nil
+}
+
+func (d *Driver) newClient(ctx context.Context, account string) *http.Client {
 	c := &http.Client{}
 	if timeout, ok := TimeoutFromCtx(ctx); ok {
 		c.Timeout = *timeout
@@ -79,46 +136,14 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	}
 
 	c.Transport = httputil.WithRetries(s3util.NewSigningRoundTripper(d.defaultTransport, credentials.NewCredentials(prov), region))
-
-	anon, err := httpdriver.NewObject(c, u, size)
-	if err != nil {
-		return nil, err
-	}
-	return storage.WithURL(anon, url), nil
+	return c
 }
 
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
-	u, err := stdurl.Parse(url)
-	if err != nil {
-		return nil, err
-	}
-
-	if !u.IsAbs() {
-		return nil, fmt.Errorf("swiftdriver: URIs must be absolute")
-	}
-
-	parts := strings.Split(u.Path, "/")
-	if len(parts) < 4 || len(parts[0]) != 0 {
-		return nil, fmt.Errorf("swiftdriver: invalid URL: %q", url)
-	}
-
-	// extract the account portion of the path.
-	account := parts[1]
-	container := parts[2]
-	key := "/" + strings.Join(parts[3:], "/")
-
-	creds := credentials.NewCredentials(NewSwiftEnvProvider(account))
-	config := aws.NewConfig().
-		WithRegion(GetSwiftRegion()).
-		WithEndpoint(fmt.Sprintf("https://%s", u.Host)).
-		WithS3ForcePathStyle(true).
-		WithCredentials(creds).
-		WithMaxRetries(100)
-
-	svc := s3.New(d.sess, config)
-
-	return s3driver.NewObjectWriter(svc, container, key, url), nil
-
+type parsedURL struct {
+	URL       *stdurl.URL
+	Account   string
+	Container string
+	Key       string
 }
 
 func init() {

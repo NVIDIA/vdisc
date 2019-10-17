@@ -16,6 +16,7 @@ package datadriver
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 
 	"github.com/vincent-petithory/dataurl"
@@ -50,6 +51,14 @@ func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, 
 	return &objectWriter{
 		buf: bytes.NewBuffer(dataURL.Data),
 	}, nil
+}
+
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	_, err := dataurl.DecodeString(url)
+	if err != nil {
+		return err
+	}
+	return errors.New("datadriver: remove not implemented")
 }
 
 func init() {

@@ -42,13 +42,58 @@ type Driver struct {
 }
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	c := d.newClient(ctx, parsed.BucketRegion)
+	return httpdriver.NewObject(c, url, parsed.URL, size), nil
+}
+
+func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	config := aws.NewConfig().
+		WithRegion(parsed.BucketRegion).
+		WithMaxRetries(100).
+		WithS3DisableContentMD5Validation(true)
+
+	if creds, ok := CredentialsFromCtx(ctx); ok {
+		config = config.WithCredentials(creds)
+	}
+
+	svc := s3.New(d.sess, config)
+
+	return NewObjectWriter(svc, parsed.Bucket, parsed.URL.Path, url), nil
+}
+
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return err
+	}
+
+	c := d.newClient(ctx, parsed.BucketRegion)
+
+	return httpdriver.Delete(c, url, parsed.URL)
+}
+
+func (d *Driver) parseURL(url string) (*parsedURL, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {
 		return nil, err
 	}
 
+	if u.Scheme != "s3" {
+		return nil, fmt.Errorf("s3driver: unexpected scheme %q", u.Scheme)
+	}
+
 	if !u.IsAbs() {
-		return nil, fmt.Errorf("s3: URIs must be absolute")
+		return nil, fmt.Errorf("s3driver: url must be absolute: %q", url)
 	}
 
 	bucket := u.Hostname()
@@ -60,58 +105,11 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	u.Scheme = "https"
 	u.Host = fmt.Sprintf("%s.s3-%s.amazonaws.com", bucket, bucketRegion)
 
-	c := &http.Client{}
-	if timeout, ok := TimeoutFromCtx(ctx); ok {
-		c.Timeout = *timeout
-	} else {
-		c.Timeout = 30 * time.Second
-	}
-
-	creds, ok := CredentialsFromCtx(ctx)
-	if !ok {
-		cfg := aws.NewConfig().
-			WithEndpointResolver(endpoints.DefaultResolver()).
-			WithRegion(bucketRegion)
-		creds = defaults.CredChain(cfg, defaults.Handlers())
-	}
-	c.Transport = httputil.WithRetries(s3util.NewSigningRoundTripper(d.defaultTransport, creds, bucketRegion))
-
-	anon, err := httpdriver.NewObject(c, u, size)
-	if err != nil {
-		return nil, err
-	}
-
-	return storage.WithURL(anon, url), err
-}
-
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
-	u, err := stdurl.Parse(url)
-	if err != nil {
-		return nil, err
-	}
-
-	if !u.IsAbs() {
-		return nil, fmt.Errorf("s3: URIs must be absolute")
-	}
-
-	bucket := u.Hostname()
-	bucketRegion, err := d.getBucketRegion(bucket)
-	if err != nil {
-		return nil, err
-	}
-
-	config := aws.NewConfig().
-		WithRegion(bucketRegion).
-		WithMaxRetries(100).
-		WithS3DisableContentMD5Validation(true)
-
-	if creds, ok := CredentialsFromCtx(ctx); ok {
-		config = config.WithCredentials(creds)
-	}
-
-	svc := s3.New(d.sess, config)
-
-	return NewObjectWriter(svc, bucket, u.Path, url), nil
+	return &parsedURL{
+		URL:          u,
+		Bucket:       bucket,
+		BucketRegion: bucketRegion,
+	}, nil
 }
 
 func (d *Driver) getBucketRegion(bucketName string) (string, error) {
@@ -134,6 +132,32 @@ func (d *Driver) getBucketRegion(bucketName string) (string, error) {
 	d.mu.Unlock()
 
 	return rp.Apply()
+}
+
+func (d *Driver) newClient(ctx context.Context, bucketRegion string) *http.Client {
+	c := &http.Client{}
+	if timeout, ok := TimeoutFromCtx(ctx); ok {
+		c.Timeout = *timeout
+	} else {
+		c.Timeout = 30 * time.Second
+	}
+
+	creds, ok := CredentialsFromCtx(ctx)
+	if !ok {
+		cfg := aws.NewConfig().
+			WithEndpointResolver(endpoints.DefaultResolver()).
+			WithRegion(bucketRegion)
+		creds = defaults.CredChain(cfg, defaults.Handlers())
+	}
+	c.Transport = httputil.WithRetries(s3util.NewSigningRoundTripper(d.defaultTransport, creds, bucketRegion))
+
+	return c
+}
+
+type parsedURL struct {
+	URL          *stdurl.URL
+	Bucket       string
+	BucketRegion string
 }
 
 func init() {

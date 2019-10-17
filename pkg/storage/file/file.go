@@ -28,25 +28,9 @@ import (
 type Driver struct{}
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
-	u, err := stdurl.Parse(url)
+	path, err := urlToPath(url)
 	if err != nil {
 		return nil, err
-	}
-
-	if u.Scheme == "" {
-		u.Scheme = "file"
-		if !strings.HasPrefix(u.Path, "/") {
-			u.Opaque = u.Path
-			u.Path = ""
-			u.RawPath = ""
-		}
-	}
-
-	var path string
-	if len(u.Opaque) == 0 {
-		path = u.Path
-	} else {
-		path = u.Opaque
 	}
 
 	f, err := os.Open(path)
@@ -69,9 +53,36 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 }
 
 func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
-	u, err := stdurl.Parse(url)
+	path, err := urlToPath(url)
 	if err != nil {
 		return nil, err
+	}
+
+	dir := filepath.Dir(path)
+	f, err := ioutil.TempFile(dir, ".tmp.filedriver")
+	if err != nil {
+		return nil, err
+	}
+
+	return &objectWriter{
+		path: path,
+		f:    f,
+	}, nil
+}
+
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	path, err := urlToPath(url)
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(path)
+}
+
+func urlToPath(url string) (string, error) {
+	u, err := stdurl.Parse(url)
+	if err != nil {
+		return "", err
 	}
 
 	if u.Scheme == "" {
@@ -90,19 +101,7 @@ func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, 
 		path = u.Opaque
 	}
 
-	path = filepath.Clean(path)
-
-	dir := filepath.Dir(path)
-
-	f, err := ioutil.TempFile(dir, ".tmp.filedriver")
-	if err != nil {
-		return nil, err
-	}
-
-	return &objectWriter{
-		path: path,
-		f:    f,
-	}, nil
+	return filepath.Clean(path), nil
 }
 
 func init() {

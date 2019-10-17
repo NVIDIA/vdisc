@@ -52,6 +52,10 @@ func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, 
 	return nil, errors.New("zerodriver: create not implemented")
 }
 
+func (d *Driver) Remove(ctx context.Context, url string) error {
+	return errors.New("zerodriver: remove not implemented")
+}
+
 func init() {
 	storage.Register("zero", &Driver{})
 }
