@@ -477,3 +477,24 @@ go_repository(
     sum = "h1:FNCRpXiquG1aoyqcIWVFmpTSKVcx2bQD38uZZeGtdlw=",
     version = "v0.0.0-20180421153158-65cc252bf669",
 )
+
+go_repository(
+    name = "com_github_jacobsa_fuse",
+    importpath = "github.com/jacobsa/fuse",
+    sum = "h1:eDSIm6ulR+w2iC3rM3i4FsYdyt4ChkTViJ3Sv0FXeiA=",
+    version = "v0.0.0-20190923155423-081e9f4bc7d4",
+)
+
+go_repository(
+    name = "com_github_dgraph_io_ristretto",
+    importpath = "github.com/dgraph-io/ristretto",
+    sum = "h1:9G6fVccQriMJu4nXwpwLDoy9y31t/KUSLAbPcoBgv+4=",
+    version = "v0.0.0-20191010170704-2ba187ef9534",
+)
+
+go_repository(
+    name = "com_github_dgryski_go_farm",
+    importpath = "github.com/dgryski/go-farm",
+    sum = "h1:tdlZCpZ/P9DhczCTSixgIKmwPv6+wP5DGjqLYw5SUiA=",
+    version = "v0.0.0-20190423205320-6a90982ecee2",
+)

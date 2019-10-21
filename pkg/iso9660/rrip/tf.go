@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/NVIDIA/vdisc/pkg/iso9660/datetime"
+	"github.com/NVIDIA/vdisc/pkg/iso9660/susp"
 )
 
 // RRIP "TF" timestamps
@@ -179,4 +180,14 @@ func (tf *Timestamps) WriteTo(w io.Writer) (n int64, err error) {
 		panic("never")
 	}
 	return
+}
+
+func DecodeTimestamps(entries []susp.SystemUseEntry) (*Timestamps, bool) {
+	for _, entry := range entries {
+		switch e := entry.(type) {
+		case *Timestamps:
+			return e, true
+		}
+	}
+	return nil, false
 }

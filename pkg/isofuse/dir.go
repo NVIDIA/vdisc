@@ -14,102 +14,192 @@
 package isofuse
 
 import (
-	"path/filepath"
-	"syscall"
+	"context"
+	"os"
+	"time"
 
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
+	"github.com/jacobsa/fuse"
+	"github.com/jacobsa/fuse/fuseops"
+	"github.com/jacobsa/fuse/fuseutil"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 
 	"github.com/NVIDIA/vdisc/pkg/iso9660"
-	"github.com/NVIDIA/vdisc/pkg/vdisc"
+	"github.com/NVIDIA/vdisc/pkg/safecast"
 )
 
-// Dir implements both Node and Handle for the root directory.
-type Dir struct {
-	vdisc vdisc.VDisc
-	w     *iso9660.Walker
-	path  string
-	fi    *iso9660.FileInfo
-}
+// GetInodeAttribute returns the attribute of an inode and
+// attribute expiration time
+func (fs *isoFS) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
+	fs.finfosMU.RLock()
+	entry, ok := fs.finfos[op.Inode]
+	if !ok {
+		fs.finfosMU.RUnlock()
+		fs.logger.Error("get inode attributes", zap.Uint64("ino", uint64(op.Inode)), zap.Error(errUnknownInode))
+		return fuse.EINVAL
+	}
+	fs.finfosMU.RUnlock()
 
-func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = uint64(d.fi.Extent())
-	a.Mode = d.fi.Mode()
-	a.Size = uint64(d.fi.Size())
-	a.Blocks = uint64((d.fi.Size() + 2047) / 2048)
-	a.Ctime = d.fi.ModTime()
-	a.Mtime = d.fi.ModTime()
+	op.Attributes = fuseops.InodeAttributes{
+		Size:  safecast.Int64ToUint64(entry.Info.Size()),
+		Nlink: entry.Info.Nlink(),
+		Mode:  entry.Info.Mode(),
+		Ctime: entry.Info.ModTime(),
+		Mtime: entry.Info.ModTime(),
+		Uid:   entry.Info.Uid(),
+		Gid:   entry.Info.Gid(),
+	}
+	op.AttributesExpiration = time.Now().Add(1 * time.Minute)
 	return nil
 }
 
-func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	pth := filepath.Join(d.path, name)
-	finfo, err := d.w.Lstat(pth)
-	if err != nil {
-		switch err {
-		case syscall.ENOENT:
-			return nil, fuse.ENOENT
-		case syscall.ENOTDIR:
-			return nil, fuse.Errno(syscall.ENOTDIR)
-		default:
-			zap.L().Error("lookup", zap.Error(err))
-			return nil, fuse.EIO
+// LookUpInode looks up a child by name within a parent directory.
+// Returns ChildInodeEntry which contains information about a child
+// inode within its parent directory. Kernel sends this when resolving
+// user paths to dentry structs and setup a dcache entry.
+func (fs *isoFS) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
+	set := func(child *iso9660.FileInfo) {
+		childIno := fuseops.InodeID(child.Ino())
+		fs.finfosMU.Lock()
+		defer fs.finfosMU.Unlock()
+		centry, ok := fs.finfos[childIno]
+		if !ok {
+			centry = &finfosEntry{
+				Info: child,
+			}
+			fs.finfos[childIno] = centry
+		}
+		centry.RefCnt++
+		op.Entry = fuseops.ChildInodeEntry{
+			Child: childIno,
+			Attributes: fuseops.InodeAttributes{
+				Size:  safecast.Int64ToUint64(child.Size()),
+				Nlink: child.Nlink(),
+				Mode:  child.Mode(),
+				Ctime: child.ModTime(),
+				Mtime: child.ModTime(),
+				Uid:   child.Uid(),
+				Gid:   child.Gid(),
+			},
+			AttributesExpiration: time.Now().Add(1 * time.Minute),
+			EntryExpiration:      time.Now().Add(1 * time.Hour),
 		}
 	}
 
-	fi := finfo.Sys().(*iso9660.FileInfo)
-
-	if fi.IsDir() {
-		return &Dir{d.vdisc, d.w, pth, fi}, nil
+	cachedFi, ok := fs.finfoCache.Get(op.Parent, op.Name)
+	if ok {
+		set(cachedFi)
+		return nil
 	}
 
-	obj, err := d.vdisc.OpenExtent(fi.Extent())
-	if err != nil {
-		zap.L().Error("lookup", zap.Error(err))
-		return nil, fuse.EIO
+	fs.finfosMU.RLock()
+	entry, ok := fs.finfos[op.Parent]
+	if !ok {
+		fs.finfosMU.RUnlock()
+		fs.logger.Info("lookup inode", zap.Uint64("parent", uint64(op.Parent)), zap.String("name", op.Name), zap.Error(errUnknownInode))
+		return fuse.EINVAL
+	}
+	fs.finfosMU.RUnlock()
+
+	// Sequentially scan the directory looking for Name
+	it := iso9660.NewReadDirIterator(fs.vdisc.Image(), entry.Info.Extent(), entry.Info.Size(), 0)
+	for it.Next() {
+		child, _ := it.FileInfoAndLen()
+		fs.finfoCache.Put(op.Parent, child.Name(), child)
+		if child.Name() == op.Name {
+			set(child)
+			return nil
+		}
+	}
+	if err := it.Err(); err != nil {
+		fs.logger.Error("lookup inode", zap.Uint64("parent", uint64(op.Parent)), zap.String("name", op.Name), zap.Error(err))
+		return fuse.EIO
 	}
 
-	return &File{fi, obj}, nil
+	return fuse.ENOENT
 }
 
-func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	var result []fuse.Dirent
-	finfos, err := d.w.ReadDir(d.path)
-	if err != nil {
-		switch err {
-		case syscall.ENOENT:
-			return nil, fuse.ENOENT
-		case syscall.ENOTDIR:
-			return nil, fuse.Errno(syscall.ENOTDIR)
-		default:
-			zap.L().Error("readdir", zap.Error(err))
-			return nil, fuse.EIO
-		}
+// ForgetInode is called by FS to decrement inode reference count.
+func (fs *isoFS) ForgetInode(ctx context.Context, op *fuseops.ForgetInodeOp) error {
+	if op.Inode == 1 {
+		return nil
 	}
 
-	for _, finfo := range finfos {
-		fi := finfo.Sys().(*iso9660.FileInfo)
+	fs.finfosMU.Lock()
+	defer fs.finfosMU.Unlock()
 
-		var typ fuse.DirentType
+	entry, ok := fs.finfos[op.Inode]
+	if !ok {
+		fs.logger.Error("forget inode", zap.Uint64("ino", uint64(op.Inode)), zap.Error(errUnknownInode))
+		return fuse.EINVAL
+	}
+
+	if entry.RefCnt > op.N {
+		entry.RefCnt = entry.RefCnt - op.N
+	} else {
+		delete(fs.finfos, op.Inode)
+	}
+
+	return nil
+}
+
+// OpenDir opens a Dir inode
+func (fs *isoFS) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
+	return nil
+}
+
+// ReleaseDirHandle is a nop added to avoid error logs. sent by kernel when there are
+// no more references to dir handle and all file descriptor are closed.
+func (fs isoFS) ReleaseDirHandle(ctx context.Context, op *fuseops.ReleaseDirHandleOp) error {
+	return nil
+}
+
+// ReadDir returns directory entries for a directory represetend by the inode
+// Prior to calling this method inode/dir is opened by calling OpenDir ops.
+func (fs *isoFS) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
+	fs.finfosMU.RLock()
+	entry, ok := fs.finfos[op.Inode]
+	if !ok {
+		fs.finfosMU.RUnlock()
+		fs.logger.Info("open dir", zap.Uint64("ino", uint64(op.Inode)), zap.Error(errUnknownInode))
+		return fuse.EINVAL
+	}
+	fs.finfosMU.RUnlock()
+
+	it := iso9660.NewReadDirIterator(fs.vdisc.Image(), entry.Info.Extent(), entry.Info.Size(), safecast.Uint64ToInt64(uint64(op.Offset)))
+
+	off := op.Offset
+	for it.Next() {
+		fi, fiLen := it.FileInfoAndLen()
+		fs.finfoCache.Put(op.Inode, fi.Name(), fi)
+
+		var dEntryType fuseutil.DirentType
 		if fi.IsDir() {
-			typ = fuse.DT_Dir
+			dEntryType = fuseutil.DT_Directory
+		} else if fi.Mode()&os.ModeSymlink != 0 {
+			dEntryType = fuseutil.DT_Link
 		} else {
-			typ = fuse.DT_File
+			dEntryType = fuseutil.DT_File
 		}
 
-		result = append(result, fuse.Dirent{
-			Inode: uint64(fi.Extent()),
-			Name:  fi.Name(),
-			Type:  typ,
+		eino := fi.Ino()
+		l := fuseops.DirOffset(safecast.Int64ToUint64(fiLen))
+		m := fuseutil.WriteDirent(op.Dst[op.BytesRead:], fuseutil.Dirent{
+			Offset: off + l,
+			Inode:  fuseops.InodeID(eino),
+			Name:   fi.Name(),
+			Type:   dEntryType,
 		})
+		if m == 0 {
+			break
+		}
+		off += l
+		op.BytesRead += m
 	}
 
-	return result, nil
-}
+	if err := it.Err(); err != nil {
+		fs.logger.Error("readdir", zap.Uint64("inode", uint64(op.Inode)), zap.Error(err))
+		return fuse.EIO
+	}
 
-func (d *Dir) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	resp.Flags |= fuse.OpenKeepCache
-	return d, nil
+	return nil
 }

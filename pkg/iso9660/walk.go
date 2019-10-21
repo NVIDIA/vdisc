@@ -14,7 +14,6 @@
 package iso9660
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/NVIDIA/vdisc/pkg/iso9660/rrip"
 	"github.com/NVIDIA/vdisc/pkg/iso9660/susp"
+	"github.com/NVIDIA/vdisc/pkg/safecast"
 )
 
 // Walker provides an API for traversing a serialized ISO 9660 file
@@ -254,110 +254,14 @@ func (w *Walker) lstatCacheSearch(parts []string) (*FileInfo, []string) {
 }
 
 func iterDir(iso io.ReaderAt, start LogicalBlockAddress, size int64, visit func(fi *FileInfo) bool) error {
-	var dir io.Reader
-	dir = io.NewSectionReader(iso, int64(start*LogicalBlockSize), size)
-	minSize := int64(1024 * 1024)
-	if size < minSize {
-		minSize = size
-	}
-	dir = bufio.NewReaderSize(dir, int(minSize))
-
-	var directory Directory
-	err := DecodeDirectory(dir, &directory)
-	if err != nil {
-		return err
-	}
-
-	var prevIdentifier string
-
-	// accumulate multiple records with the same identifier (i.e. files larger than 4GB).
-	var aggregateRecords []*aggregateRec
-	for i, rec := range directory.Records {
-		if i > 0 {
-			prev := aggregateRecords[len(aggregateRecords)-1]
-			if prev.rec.Identifier == rec.Identifier {
-				prev.length += int64(rec.Length)
-				continue
-			}
-		}
-
-		aggregateRecords = append(aggregateRecords, &aggregateRec{
-			rec:    rec,
-			length: int64(rec.Length),
-		})
-	}
-
-	for _, arec := range aggregateRecords {
-		rec := arec.rec
-		if rec.Identifier == prevIdentifier {
-			continue
-		}
-
-		systemUse, err := allSystemUseEntries(iso, &rec)
-		if err != nil {
-			return err
-		}
-
-		name, hasName := rrip.DecodeName(systemUse)
-		if !hasName {
-			if rec.Identifier == string([]byte{0x0}) {
-				name = "."
-			} else if rec.Identifier == string([]byte{0x1}) {
-				name = ".."
-			} else {
-				name = rec.Identifier
-			}
-		}
-
-		isDir := rec.Flags&FileFlagDir != 0
-		target, isSymlink := rrip.DecodeSymlink(systemUse)
-		var mode os.FileMode
-		nlink := uint32(1)
-		var uid uint32
-		var gid uint32
-		ino := uint32(rec.Start)
-
-		if pe, ok := rrip.DecodePosixEntry(systemUse); ok {
-			mode = pe.Mode & os.ModePerm
-			if pe.Mode&syscall.S_IFDIR == syscall.S_IFDIR {
-				mode |= os.ModeDir
-			} else if pe.Mode&syscall.S_IFLNK == syscall.S_IFLNK {
-				mode |= os.ModeSymlink
-			}
-			nlink = pe.Nlink
-			uid = pe.Uid
-			gid = pe.Gid
-			ino = pe.Ino
-		} else if isDir {
-			mode = os.ModeDir | 0555
-		} else if isSymlink {
-			mode = os.ModeSymlink | 0777
-		} else {
-			mode = 0444
-		}
-
-		fi := &FileInfo{
-			name:    name,
-			size:    arec.length,
-			mode:    mode,
-			nlink:   nlink,
-			uid:     uid,
-			gid:     gid,
-			ino:     ino,
-			modTime: time.Unix(0, 0).UTC(), // TODO: rrip tf
-			isDir:   isDir,
-			extent:  rec.Start,
-			target:  target,
-		}
-
+	it := NewReadDirIterator(iso, start, size, 0)
+	for it.Next() {
+		fi, _ := it.FileInfoAndLen()
 		if cont := visit(fi); !cont {
 			break
 		}
-
-		prevIdentifier = rec.Identifier
 	}
-
-	return nil
+	return it.Err()
 }
 
 func (w *Walker) pathParts(path string) []string {
@@ -387,6 +291,7 @@ func allSystemUseEntries(iso io.ReaderAt, rec *DirectoryRecord) ([]susp.SystemUs
 		unconsumed = unconsumed[1:]
 		switch v := entry.(type) {
 		case *susp.ContinuationAreaEntry:
+
 			ceStart := v.ContinuationStart()*LogicalBlockSize + v.ContinuationOffset()
 			ceLen := v.ContinuationLength()
 			ce := io.NewSectionReader(iso, int64(ceStart), int64(ceLen))
@@ -402,4 +307,237 @@ func allSystemUseEntries(iso io.ReaderAt, rec *DirectoryRecord) ([]susp.SystemUs
 	}
 
 	return systemUse, nil
+}
+
+// NewReadDirIterator creates an iterator of FileInfos for a directory
+// at start of size and off offset into the directory.
+func NewReadDirIterator(iso io.ReaderAt, start LogicalBlockAddress, size int64, off int64) *ReadDirIterator {
+	recIt := NewDirectoryRecordIterator(iso, start, size, off)
+	return &ReadDirIterator{
+		iso:       iso,
+		recIt:     recIt,
+		finfoLen:  -1,
+		peekedLen: -1,
+	}
+}
+
+type ReadDirIterator struct {
+	iso       io.ReaderAt
+	recIt     *DirectoryRecordIterator
+	finfo     *FileInfo
+	finfoLen  int64
+	peeked    *DirectoryRecord
+	peekedLen int64
+	err       error
+	exhausted bool
+}
+
+// Err should be checked once Next returns false
+func (it *ReadDirIterator) Err() error {
+	return it.err
+}
+
+// Next reads one or more records from the directory, aggregating them
+// as necessary.
+func (it *ReadDirIterator) Next() bool {
+	if it.exhausted || it.err != nil {
+		return false
+	}
+
+	var curr *DirectoryRecord
+	var currLen int64
+	if it.peeked == nil {
+		if it.recIt.Next() {
+			curr, currLen = it.recIt.RecordAndLen()
+		} else {
+			it.exhausted = true
+			it.err = it.recIt.Err()
+			return false
+		}
+	} else {
+		curr = it.peeked
+		currLen = it.peekedLen
+		it.peeked = nil
+		it.peekedLen = -1
+	}
+
+	size := int64(curr.Length)
+
+	// look ahead to see if there is a next record, and if so, does it
+	// have the same identifier.
+	if it.recIt.Next() {
+		var next *DirectoryRecord
+		var nextLen int64
+		next, nextLen = it.recIt.RecordAndLen()
+		if next.Identifier == curr.Identifier {
+			// This record is a continuation of the current record, so
+			// we just aggregate the lengths.
+			currLen += nextLen
+			size += int64(next.Length)
+		} else {
+			it.peeked = next
+			it.peekedLen = nextLen
+		}
+	} else {
+		it.exhausted = true
+		it.err = it.recIt.Err()
+	}
+
+	// Now we actually construct the FileInfo
+	systemUse, err := allSystemUseEntries(it.iso, curr)
+	if err != nil {
+		it.err = err
+		return false
+	}
+
+	name, hasName := rrip.DecodeName(systemUse)
+	if !hasName {
+		if curr.Identifier == string([]byte{0x0}) {
+			name = "."
+		} else if curr.Identifier == string([]byte{0x1}) {
+			name = ".."
+		} else {
+			name = curr.Identifier
+		}
+	}
+
+	isDir := curr.Flags&FileFlagDir != 0
+	target, isSymlink := rrip.DecodeSymlink(systemUse)
+	var mode os.FileMode
+	nlink := uint32(1)
+	var uid uint32
+	var gid uint32
+	ino := uint32(curr.Start)
+
+	if pe, ok := rrip.DecodePosixEntry(systemUse); ok {
+		mode = pe.Mode & os.ModePerm
+		if pe.Mode&syscall.S_IFDIR == syscall.S_IFDIR {
+			mode |= os.ModeDir
+		} else if pe.Mode&syscall.S_IFLNK == syscall.S_IFLNK {
+			mode |= os.ModeSymlink
+		}
+		nlink = pe.Nlink
+		uid = pe.Uid
+		gid = pe.Gid
+		ino = pe.Ino
+	} else if isDir {
+		mode = os.ModeDir | 0555
+	} else if isSymlink {
+		mode = os.ModeSymlink | 0777
+	} else {
+		mode = 0444
+	}
+
+	modTime := time.Unix(0, 0).UTC()
+
+	if ts, ok := rrip.DecodeTimestamps(systemUse); ok {
+		modTime = ts.Modified.UTC()
+	}
+
+	it.finfo = &FileInfo{
+		name:    name,
+		size:    size,
+		mode:    mode,
+		nlink:   nlink,
+		uid:     uid,
+		gid:     gid,
+		ino:     ino,
+		modTime: modTime,
+		isDir:   isDir,
+		extent:  curr.Start,
+		target:  target,
+	}
+	it.finfoLen = currLen
+	return true
+}
+
+// FileInfoAndLen returns the FileInfo consumed by calling Next()
+// along with the number of bytes consumed in the directory.
+func (it *ReadDirIterator) FileInfoAndLen() (*FileInfo, int64) {
+	return it.finfo, it.finfoLen
+}
+
+// NewDirectoryRecordIterator creates a new iterator of
+// DirectoryRecords for a directory with start and size and off offset
+// into the directory.
+func NewDirectoryRecordIterator(iso io.ReaderAt, start LogicalBlockAddress, size int64, off int64) *DirectoryRecordIterator {
+	dir := io.NewSectionReader(iso, int64(start*LogicalBlockSize), size)
+	_, err := dir.Seek(off, io.SeekStart)
+	return &DirectoryRecordIterator{
+		dir:    dir,
+		recLen: -1,
+		err:    err,
+	}
+}
+
+type DirectoryRecordIterator struct {
+	dir    *io.SectionReader
+	rec    *DirectoryRecord
+	recLen int64
+	err    error
+}
+
+// Err should be checked once Next returns false
+func (it *DirectoryRecordIterator) Err() error {
+	return it.err
+}
+
+// The current position in the directory
+func (it *DirectoryRecordIterator) Tell() int64 {
+	pos, _ := it.dir.Seek(0, io.SeekCurrent)
+	return pos
+}
+
+// Next reads the next DirectoryRecord. It returns true if another
+// record was present, and false on EOF or if an error occurred.
+func (it *DirectoryRecordIterator) Next() bool {
+	if it.err != nil {
+		return false
+	}
+	for {
+		start := it.Tell()
+
+		rlen, err := readByte(it.dir)
+		if err != nil {
+			it.rec = nil
+			it.recLen = -1
+			if err == io.EOF {
+				it.err = nil
+				return false
+			}
+			it.err = err
+		}
+
+		if rlen == 0 {
+			// The rest of this sector is padding. Consume, and move on the the next sector.
+			pos := it.Tell()
+			padding := safecast.Uint64ToInt64(sectorsToBytes(bytesToSectors(safecast.Int64ToUint32(pos)))) - pos
+			if err := unpad(it.dir, safecast.Int64ToInt(padding)); err != nil {
+				it.rec = nil
+				it.recLen = -1
+				it.err = err
+				return false
+			}
+			continue
+		}
+
+		var rec DirectoryRecord
+		if err := DecodeDirectoryRecord(io.LimitReader(it.dir, int64(rlen)-1), &rec); err != nil {
+			it.rec = nil
+			it.recLen = -1
+			it.err = err
+			return false
+		}
+
+		it.rec = &rec
+		it.recLen = it.Tell() - start
+		it.err = nil
+		return true
+	}
+}
+
+// RecordAndLen returns the DirectoryRecord that was read by Next and
+// the number of bytes that were read from the directory.
+func (it *DirectoryRecordIterator) RecordAndLen() (*DirectoryRecord, int64) {
+	return it.rec, it.recLen
 }

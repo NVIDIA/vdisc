@@ -65,25 +65,21 @@ func (cmd *MountCmd) doFuse(v vdisc.VDisc) {
 		zap.L().Fatal("new isofuse", zap.Error(err))
 	}
 
-	// Handle interrupts
-	go func() {
-		// Make signal channel and register notifiers for Interrupt and Terminate
-		sigchan := make(chan os.Signal, 1)
-		signal.Notify(sigchan, os.Interrupt)
-		signal.Notify(sigchan, syscall.SIGTERM)
-
-		// Block until we receive a signal on the channel
-		<-sigchan
-
-		// Shutdown now that we've received the signal
-		err := fs.Shutdown()
-		if err != nil {
-			zap.L().Fatal("shutdown error", zap.Error(err))
-		}
-	}()
+	// Make signal channel and register notifiers for Interrupt and Terminate
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, os.Interrupt)
+	signal.Notify(sigchan, syscall.SIGTERM)
 
 	// Run the file system
-	if err := fs.Run(); err != nil {
-		zap.L().Fatal("run", zap.Error(err))
+	if err := fs.Start(); err != nil {
+		zap.L().Fatal("start", zap.Error(err))
+	}
+
+	// Block until we receive a signal on the channel
+	<-sigchan
+
+	// Shutdown now that we've received the signal
+	if err := fs.Close(); err != nil {
+		zap.L().Fatal("shutdown error", zap.Error(err))
 	}
 }

@@ -14,47 +14,90 @@
 package isofuse
 
 import (
+	"context"
 	"io"
 
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
+	"github.com/jacobsa/fuse"
+	"github.com/jacobsa/fuse/fuseops"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
-
-	"github.com/NVIDIA/vdisc/pkg/iso9660"
-	"github.com/NVIDIA/vdisc/pkg/storage"
 )
 
-// File implements both Node and Handle for the hello file.
-type File struct {
-	fi  *iso9660.FileInfo
-	obj storage.Object
-}
-
-func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = uint64(f.fi.Extent())
-	a.Mode = f.fi.Mode()
-	a.Size = uint64(f.fi.Size())
-	a.Blocks = uint64((f.fi.Size() + 2047) / 2048)
-	a.Ctime = f.fi.ModTime()
-	a.Mtime = f.fi.ModTime()
-	return nil
-}
-
-func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
-	r := io.NewSectionReader(f.obj, req.Offset, int64(req.Size))
-	resp.Data = make([]byte, req.Size)
-	n, err := r.Read(resp.Data)
-	if err != nil && err != io.EOF {
-		zap.L().Error("read", zap.Error(err))
-		return fuse.EIO
+// OpenFile is isoFS openFile ops called in response to a user space file open.
+// This method setups a file resource indicated by the inode for a subesquent
+// call to ReadFile ops.
+func (fs *isoFS) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
+	fs.finfosMU.RLock()
+	entry, ok := fs.finfos[op.Inode]
+	if !ok {
+		fs.finfosMU.RUnlock()
+		fs.logger.Info("open file", zap.Uint64("ino", uint64(op.Inode)), zap.Error(errUnknownInode))
+		return fuse.EINVAL
 	}
-	resp.Data = resp.Data[:n]
+	fs.finfosMU.RUnlock()
 
+	obj, err := fs.vdisc.OpenExtent(entry.Info.Extent())
+	if err != nil {
+		fs.logger.Error("open extent", zap.Error(err))
+		return fuse.EINVAL
+	}
+
+	fs.fileHandlesMU.Lock()
+	defer fs.fileHandlesMU.Unlock()
+	fs.fileHandles[fs.nextFileHandle] = obj
+	op.Handle = fs.nextFileHandle
+	op.KeepPageCache = true
+	fs.nextFileHandle++
 	return nil
 }
 
-func (f *File) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fs.Handle, error) {
-	resp.Flags |= fuse.OpenKeepCache
-	return f, nil
+// ReleaseFileHandle releses a file handle which is setup during OpenFile ops.
+// This method this called on the last close of the file.
+func (fs *isoFS) ReleaseFileHandle(ctx context.Context, op *fuseops.ReleaseFileHandleOp) error {
+	fs.fileHandlesMU.Lock()
+	defer fs.fileHandlesMU.Unlock()
+
+	obj, ok := fs.fileHandles[op.Handle]
+	if !ok {
+		fs.logger.Warn("release of unknown file handle", zap.Uint64("handle", uint64(op.Handle)))
+	} else {
+		delete(fs.fileHandles, op.Handle)
+	}
+	if err := obj.Close(); err != nil {
+		fs.logger.Error("close file handle", zap.Uint64("handle", uint64(op.Handle)), zap.Error(err))
+	}
+	return nil
+}
+
+// ReadFile is isoFS read ops. It reads data from a file previously
+// opened using OpenFile ops. The inode of the file to be read is
+// provided in op.Inode
+func (fs *isoFS) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) (err error) {
+	fs.fileHandlesMU.RLock()
+	obj, ok := fs.fileHandles[op.Handle]
+	if !ok {
+		fs.fileHandlesMU.RUnlock()
+		fs.logger.Warn("read from unknown file handle", zap.Uint64("handle", uint64(op.Handle)))
+		return fuse.EINVAL
+	}
+	fs.fileHandlesMU.RUnlock()
+
+	op.BytesRead, err = obj.ReadAt(op.Dst, op.Offset)
+	if err != nil && err != io.EOF {
+		fs.logger.Error("read", zap.Uint64("inode", uint64(op.Inode)), zap.Error(err))
+		err = fuse.EIO
+		return
+	}
+
+	if err == io.EOF {
+		err = nil
+	}
+
+	return
+}
+
+// FlushFile is not implemented. It is not required for isoFS which is
+// ReadOnly FS
+func (fs *isoFS) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
+	// ReadOnly FS Flush is not relevent
+	return
 }

@@ -33,6 +33,7 @@ go_library(
         "//pkg/iso9660/datetime:go_default_library",
         "//pkg/iso9660/rrip:go_default_library",
         "//pkg/iso9660/susp:go_default_library",
+        "//pkg/safecast:go_default_library",
         "//pkg/storage:go_default_library",
         "@com_github_badgerodon_collections//queue:go_default_library",
         "@com_github_emirpasic_gods//maps/treemap:go_default_library",

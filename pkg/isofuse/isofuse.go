@@ -14,126 +14,201 @@
 package isofuse
 
 import (
-	"syscall"
+	"context"
+	"errors"
+	"io"
+	"sync"
 
-	"bazil.org/fuse"
-	fusefs "bazil.org/fuse/fs"
+	"github.com/jacobsa/fuse"
+	"github.com/jacobsa/fuse/fuseops"
+	"github.com/jacobsa/fuse/fuseutil"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/NVIDIA/vdisc/pkg/iso9660"
+	"github.com/NVIDIA/vdisc/pkg/safecast"
+	"github.com/NVIDIA/vdisc/pkg/storage"
 	"github.com/NVIDIA/vdisc/pkg/vdisc"
 )
 
+// Config is used to configure a Server
 type Options struct {
-	AllowOtherUsers bool `help:"Allow other users to access this fuse mount"`
+	AllowOtherUsers bool `help:"Allow other users to access the fuse mount"`
 }
 
-// FS implements the hello world file system.
-type FS struct {
-	mountpoint string
-	vdisc      vdisc.VDisc
-	w          *iso9660.Walker
-	conn       *fuse.Conn // Hook to the FUSE connection object
-	options    Options
-}
+// NewServer creates an instance of an isofuse server
+func NewWithOptions(mountpoint string, vdisc vdisc.VDisc, opts Options) (*Server, error) {
+	var pvd iso9660.PrimaryVolumeDescriptor
+	pvdSector := io.NewSectionReader(vdisc.Image(), 16*iso9660.LogicalBlockSize, iso9660.LogicalBlockSize)
+	if err := iso9660.DecodePrimaryVolumeDescriptor(pvdSector, &pvd); err != nil {
+		return nil, err
+	}
 
-func New(mountpoint string, v vdisc.VDisc) (*FS, error) {
-	return NewWithOptions(mountpoint, v, Options{})
-}
+	l := zap.L().Named("isofuse")
+	fs, err := newIsoFS(l, vdisc, &pvd)
+	if err != nil {
+		return nil, err
+	}
 
-func NewWithOptions(mountpoint string, v vdisc.VDisc, options Options) (*FS, error) {
-	return &FS{
-		mountpoint: mountpoint,
-		vdisc:      v,
-		w:          iso9660.NewWalker(v.Image()),
-		options:    options,
+	return &Server{
+		name:        pvd.VolumeIdentifier,
+		mountpoint:  mountpoint,
+		logger:      l,
+		allowOthers: opts.AllowOtherUsers,
+		fs:          fs,
+		err:         make(chan error),
 	}, nil
 }
 
-// Run the file system, mounting the MountPoint and connecting to FUSE
-func (fs *FS) Run() error {
-	var err error
-
-	// Unmount the FS in case it was mounted with errors.
-	fuse.Unmount(fs.mountpoint)
-
-	// Create the mount options to pass to Mount.
-	opts := []fuse.MountOption{
-		fuse.FSName("ISO9660"),
-		fuse.Subtype("vdisc"),
-		fuse.VolumeName("MYVDISC"),
-		fuse.DefaultPermissions(),
-		fuse.MaxReadahead(64 * 1024 * 1024),
-		fuse.ReadOnly(),
-	}
-
-	if fs.options.AllowOtherUsers {
-		opts = append(opts, fuse.AllowOther())
-	}
-
-	// Mount the FS with the specified options
-	if fs.conn, err = fuse.Mount(fs.mountpoint, opts...); err != nil {
-		return err
-	}
-
-	// Ensure that the file system is shutdown
-	defer fs.conn.Close()
-	zap.L().Info("mounted iso", zap.String("mountpoint", fs.mountpoint))
-
-	// Serve the file system
-	if err = fusefs.Serve(fs.conn, fs); err != nil {
-		return err
-	}
-
-	zap.L().Info("post serve")
-
-	// Check if the mount process has an error to report
-	<-fs.conn.Ready
-	if fs.conn.MountError != nil {
-		return fs.conn.MountError
-	}
-
-	return nil
+type Server struct {
+	name        string      // Name of the mounted volume (OS X only)
+	mountpoint  string      // Mount dir
+	logger      *zap.Logger // Logger used for logging
+	allowOthers bool        // security override, allow all users to access the files
+	fs          *isoFS
+	err         chan error // Error channel between serve thread and close
 }
 
-func (fs *FS) Shutdown() error {
-	zap.L().Info("shutting the file system down gracefully")
+// Start mounts and starts an isofuse server
+func (s *Server) Start() error {
+	fserver := fuseutil.NewFileSystemServer(s.fs)
 
-	if fs.conn == nil {
+	elog, err := zap.NewStdLogAt(s.logger, zapcore.ErrorLevel)
+	if err != nil {
+		return err
+	}
+
+	dlog, err := zap.NewStdLogAt(s.logger, zapcore.DebugLevel)
+	if err != nil {
+		return err
+	}
+
+	cfg := &fuse.MountConfig{
+		FSName:      "isofuse",
+		ReadOnly:    true,
+		ErrorLogger: elog,
+		DebugLogger: dlog,
+		VolumeName:  s.name,
+	}
+	if s.allowOthers == true {
+		// user_allow_other must be set in /etc/fuse.conf
+		cfg.Options = map[string]string{"allow_other": ""}
+	}
+	mfs, err := fuse.Mount(s.mountpoint, fserver, cfg)
+	if err != nil {
+		return err
+	}
+	s.fs.mfs = mfs
+	go s.serve()
+
+	return nil
+
+}
+
+// Close unmounts isofuse and stops the server
+func (s *Server) Close() error {
+	if s.fs.mfs == nil {
+		// in case close is called even if start failed
+		s.logger.Info("nil mountedfs", zap.String("mountpoint", s.mountpoint))
 		return nil
 	}
-
-	if err := fuse.Unmount(fs.mountpoint); err != nil {
+	s.logger.Info("Unmount", zap.String("mountpoint", s.fs.mfs.Dir()))
+	err := fuse.Unmount(s.fs.mfs.Dir())
+	if err != nil {
+		s.logger.Info("unmount", zap.Error(err))
 		return err
 	}
+	return <-s.err
+}
 
+func (s *Server) serve() {
+	s.logger.Info("Started")
+
+	// Wait for it to be unmounted.
+	err := s.fs.mfs.Join(context.Background())
+	if err != nil {
+		s.logger.Info("Join: ", zap.Error(err))
+	}
+	s.err <- err
+	s.logger.Info("Done.")
+
+	return
+}
+
+var errUnknownInode = errors.New("unknown inode")
+
+func newIsoFS(logger *zap.Logger, v vdisc.VDisc, pvd *iso9660.PrimaryVolumeDescriptor) (*isoFS, error) {
+	c, err := NewFileInfoCache(100000)
+	if err != nil {
+		return nil, err
+	}
+	fs := &isoFS{
+		logger:         logger,
+		vdisc:          v,
+		finfos:         make(map[fuseops.InodeID]*finfosEntry),
+		finfoCache:     c,
+		nextFileHandle: 1,
+		fileHandles:    make(map[fuseops.HandleID]storage.Object),
+	}
+
+	// prime the root directory inode info
+	it := iso9660.NewReadDirIterator(v.Image(), pvd.RootStart, int64(pvd.RootLength), 0)
+	if !it.Next() {
+		return nil, errors.New("bad vdisc root directory")
+	}
+	root, _ := it.FileInfoAndLen()
+	fs.finfos[1] = &finfosEntry{
+		Info: root,
+	}
+	return fs, nil
+}
+
+type isoFS struct {
+	fuseutil.NotImplementedFileSystem // To support default implementation of ops not implemented by this FS
+
+	logger *zap.Logger
+
+	vdisc vdisc.VDisc
+
+	mfs *fuse.MountedFileSystem
+
+	finfosMU sync.RWMutex
+	finfos   map[fuseops.InodeID]*finfosEntry
+
+	finfoCache FileInfoCache
+
+	fileHandlesMU  sync.RWMutex
+	nextFileHandle fuseops.HandleID
+	fileHandles    map[fuseops.HandleID]storage.Object
+}
+
+// StartFS returns information about file system capacity and resources
+func (fs *isoFS) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
+	op.BlockSize = uint32(fs.vdisc.BlockSize())
+	op.Blocks = safecast.Int64ToUint64(fs.vdisc.Image().Size()) / uint64(fs.vdisc.BlockSize())
+	op.IoSize = 4194304
 	return nil
 }
 
-func (fs *FS) Close() error {
-	return fs.Shutdown()
+// ReadSymlink returns the target of a symlink inode
+func (fs *isoFS) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
+	fs.finfosMU.RLock()
+	entry, ok := fs.finfos[op.Inode]
+	if !ok {
+		fs.finfosMU.RUnlock()
+		fs.logger.Info("read symlink", zap.Uint64("ino", uint64(op.Inode)), zap.Error(errUnknownInode))
+		return fuse.EINVAL
+	}
+	fs.finfosMU.RUnlock()
+	op.Target = entry.Info.Target()
+	return nil
 }
 
-func (fs *FS) Root() (fusefs.Node, error) {
-	finfo, err := fs.w.Lstat("")
-	if err != nil {
-		switch err {
-		case syscall.ENOENT:
-			return nil, fuse.ENOENT
-		case syscall.ENOTDIR:
-			return nil, fuse.Errno(syscall.ENOTDIR)
-		default:
-			zap.L().Error("lstat file system root", zap.Error(err))
-			return nil, fuse.EIO
-		}
-	}
+func inoToExtent(ino fuseops.InodeID) iso9660.LogicalBlockAddress {
+	return iso9660.LogicalBlockAddress(safecast.Uint64ToUint32(uint64(ino)))
+}
 
-	fi := finfo.Sys().(*iso9660.FileInfo)
-
-	return &Dir{
-		vdisc: fs.vdisc,
-		w:     fs.w,
-		path:  "/",
-		fi:    fi,
-	}, nil
+type finfosEntry struct {
+	RefCnt uint64
+	Info   *iso9660.FileInfo
 }

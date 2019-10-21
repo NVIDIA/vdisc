@@ -8,12 +8,14 @@ require (
 	github.com/aws/aws-sdk-go v1.24.5 // indirect
 	github.com/badgerodon/collections v0.0.0-20130729185459-604e922904d3 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/dgraph-io/ristretto v0.0.0-20191010170704-2ba187ef9534 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/jacobsa/fuse v0.0.0-20190923155423-081e9f4bc7d4 // indirect
 	github.com/lukealonso/dnscache v0.0.0-20190603182722-ca742573d4fd // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
