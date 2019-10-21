@@ -133,7 +133,8 @@ type InodeAllocator interface {
 
 // Create a new inode number allocator
 func NewInodeAllocator() InodeAllocator {
-	return &inodeAllocator{0, false}
+	// The root inode must be 1
+	return &inodeAllocator{1, false}
 }
 
 type inodeAllocator struct {
