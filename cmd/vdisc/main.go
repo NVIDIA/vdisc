@@ -46,6 +46,9 @@ func main() {
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
+	undo = zap.RedirectStdLog(logger)
+	defer undo()
+
 	maxprocs.Set(maxprocs.Logger(logger.Sugar().Infof))
 
 	cli := vdisc_cli.CLI{}
