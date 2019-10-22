@@ -16,7 +16,7 @@ package filedriver
 import (
 	"os"
 
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 type objectWriter struct {
@@ -30,7 +30,7 @@ func (ow *objectWriter) Abort() {
 	ow.f.Close()
 }
 
-func (ow *objectWriter) Commit() (storage.CommitInfo, error) {
+func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
 	if err := ow.f.Sync(); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (ow *objectWriter) Commit() (storage.CommitInfo, error) {
 		return nil, err
 	}
 
-	return storage.NewCommitInfo(ow.path), nil
+	return driver.NewCommitInfo(ow.path), nil
 }
 
 func (ow *objectWriter) Write(p []byte) (n int, err error) {

@@ -11,35 +11,36 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package datadriver
+package driver
 
 import (
-	"bytes"
-
-	"github.com/vincent-petithory/dataurl"
-
-	"github.com/NVIDIA/vdisc/pkg/storage/driver"
+	"errors"
+	"io"
 )
 
-type objectWriter struct {
-	buf *bytes.Buffer
+// ObjectWriter is a handle for creating an Object
+type ObjectWriter interface {
+	io.Writer
+	Abort()
+	Commit() (CommitInfo, error)
 }
 
-func (ow *objectWriter) Abort() {
-	ow.buf = nil
+type CommitInfo interface {
+	// ObjectURL returns the final URL of the committed object
+	ObjectURL() string
 }
 
-func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
-	if ow.buf == nil {
-		return nil, driver.CommitOnAbortedObjectWriter
-	}
+var CommitOnAbortedObjectWriter = errors.New("commit on aborted ObjectWriter")
 
-	durl := dataurl.New(ow.buf.Bytes(), "binary/octet-stream")
-
-	return driver.NewCommitInfo(durl.String()), nil
+// NewCommitInfo is a helper function for storage drivers
+func NewCommitInfo(url string) CommitInfo {
+	return &commitInfo{url}
 }
 
-func (ow *objectWriter) Write(p []byte) (n int, err error) {
-	n, err = ow.buf.Write(p)
-	return
+type commitInfo struct {
+	url string
+}
+
+func (ci *commitInfo) ObjectURL() string {
+	return ci.url
 }

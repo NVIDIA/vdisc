@@ -25,7 +25,6 @@ import (
 
 	//rmock "git.nvda.ai/nucleus/src/common/resources/mocks"
 	"github.com/NVIDIA/vdisc/pkg/storage"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/data"
 )
 
 func TestConcat(t *testing.T) {

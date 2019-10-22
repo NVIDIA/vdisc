@@ -31,7 +31,7 @@ import (
 
 	"github.com/NVIDIA/vdisc/pkg/httputil"
 	"github.com/NVIDIA/vdisc/pkg/s3util"
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 	"github.com/NVIDIA/vdisc/pkg/storage/http"
 )
 
@@ -43,7 +43,7 @@ type Driver struct {
 	bucketRegionCache map[string]regionPromise
 }
 
-func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	parsed, err := d.parseURL(url)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	return httpdriver.NewObject(c, url, parsed.URL, size), nil
 }
 
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
 	parsed, err := d.parseURL(url)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ type parsedURL struct {
 	BucketRegion string
 }
 
-func init() {
+func RegisterDefaultDriver() {
 	t := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		MaxIdleConns:          1024,
@@ -191,7 +191,7 @@ func init() {
 	}
 	httputil.AddDNSCache(t)
 
-	storage.Register("s3", &Driver{
+	driver.Register("s3", &Driver{
 		sess:              session.Must(session.NewSession()),
 		defaultTransport:  httputil.WithMetrics(t, "s3"),
 		bucketRegionCache: make(map[string]regionPromise),

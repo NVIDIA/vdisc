@@ -21,13 +21,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 // Driver is the file URI scheme storage driver.
 type Driver struct{}
 
-func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	path, err := urlToPath(url)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	}, nil
 }
 
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
 	path, err := urlToPath(url)
 	if err != nil {
 		return nil, err
@@ -113,6 +113,6 @@ func urlToPath(url string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-func init() {
-	storage.Register("file", &Driver{})
+func RegisterDefaultDriver() {
+	driver.Register("file", &Driver{})
 }

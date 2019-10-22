@@ -15,105 +15,36 @@ package storage
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io"
-	stdurl "net/url"
 	"os"
-	"sort"
-	"strings"
 	"sync"
+
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
+
+	"github.com/NVIDIA/vdisc/pkg/storage/data"
+	"github.com/NVIDIA/vdisc/pkg/storage/file"
+	"github.com/NVIDIA/vdisc/pkg/storage/http"
+	"github.com/NVIDIA/vdisc/pkg/storage/s3"
+	"github.com/NVIDIA/vdisc/pkg/storage/swift"
+	"github.com/NVIDIA/vdisc/pkg/storage/zero"
 )
 
 // AnonymousObject represents a read-only, fixed size, random access object.
 type AnonymousObject interface {
-	io.Closer
-	io.Reader
-	io.ReaderAt
-	io.Seeker
-	Size() int64
+	driver.AnonymousObject
 }
 
 // Object represents a AnonymousObject with a URL
 type Object interface {
-	AnonymousObject
-
-	// URL is the location of this object.
-	URL() string
+	driver.Object
 }
 
 // ObjectWriter is a handle for creating an Object
 type ObjectWriter interface {
-	io.Writer
-	Abort()
-	Commit() (CommitInfo, error)
+	driver.ObjectWriter
 }
 
 type CommitInfo interface {
-	// ObjectURL returns the final URL of the committed object
-	ObjectURL() string
-}
-
-var CommitOnAbortedObjectWriter = errors.New("commit on aborted ObjectWriter")
-
-// NewCommitInfo is a helper function for storage drivers
-func NewCommitInfo(url string) CommitInfo {
-	return &commitInfo{url}
-}
-
-type commitInfo struct {
-	url string
-}
-
-func (ci *commitInfo) ObjectURL() string {
-	return ci.url
-}
-
-// Driver is the interface that must be implemented by a storage driver.
-type Driver interface {
-	// Open opens the Object for reading.
-	Open(ctx context.Context, url string, size int64) (Object, error)
-
-	// Create an ObjectWriter handle
-	Create(ctx context.Context, url string) (ObjectWriter, error)
-
-	// Remove an object
-	Remove(ctx context.Context, url string) error
-
-	// Stat returns a FileInfo describing the Object.
-	Stat(ctx context.Context, url string) (os.FileInfo, error)
-}
-
-var (
-	driversMu sync.RWMutex
-	drivers   = make(map[string]Driver)
-)
-
-// Register makes a storage driver available by the provided URL scheme.
-// If Register is called twice with the same scheme or if driver is nil,
-// it panics.
-func Register(scheme string, driver Driver) {
-	driversMu.Lock()
-	defer driversMu.Unlock()
-	if driver == nil {
-		panic("storage: Register driver is nil")
-	}
-	if _, dup := drivers[scheme]; dup {
-		panic("storage: Register called twice for driver " + scheme)
-	}
-	drivers[scheme] = driver
-}
-
-// Drivers returns a sorted list of the URL schemes of the registered drivers.
-func Drivers() []string {
-	driversMu.RLock()
-	defer driversMu.RUnlock()
-	var list []string
-	for scheme := range drivers {
-		list = append(list, scheme)
-	}
-	sort.Strings(list)
-	return list
+	driver.CommitInfo
 }
 
 // Open opens the Object for reading.
@@ -123,7 +54,9 @@ func Open(url string) (Object, error) {
 
 // Open opens the Object with the context and declared size.
 func OpenContextSize(ctx context.Context, url string, size int64) (Object, error) {
-	drvr, err := findDriver(url)
+	registerDefaultsOnce.Do(registerDefaults)
+
+	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +70,9 @@ func Create(url string) (ObjectWriter, error) {
 
 // Create an ObjectWriter handle
 func CreateContext(ctx context.Context, url string) (ObjectWriter, error) {
-	drvr, err := findDriver(url)
+	registerDefaultsOnce.Do(registerDefaults)
+
+	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +86,9 @@ func Remove(url string) error {
 
 // Remove an object
 func RemoveContext(ctx context.Context, url string) error {
-	drvr, err := findDriver(url)
+	registerDefaultsOnce.Do(registerDefaults)
+
+	drvr, err := driver.Find(url)
 	if err != nil {
 		return err
 	}
@@ -165,36 +102,13 @@ func Stat(url string) (os.FileInfo, error) {
 
 // Stat returns a FileInfo describing the Object
 func StatContext(ctx context.Context, url string) (os.FileInfo, error) {
-	drvr, err := findDriver(url)
+	registerDefaultsOnce.Do(registerDefaults)
+
+	drvr, err := driver.Find(url)
 	if err != nil {
 		return nil, err
 	}
 	return drvr.Stat(ctx, url)
-}
-
-func findDriver(url string) (Driver, error) {
-	u, err := stdurl.Parse(url)
-	if err != nil {
-		return nil, err
-	}
-
-	if u.Scheme == "" {
-		u.Scheme = "file"
-		if !strings.HasPrefix(u.Path, "/") {
-			u.Opaque = u.Path
-			u.Path = ""
-			u.RawPath = ""
-		}
-	}
-
-	driversMu.RLock()
-	defer driversMu.RUnlock()
-
-	drvr, ok := drivers[u.Scheme]
-	if !ok {
-		return nil, fmt.Errorf("storage: unknown driver %q (forgotten import?)", u.Scheme)
-	}
-	return drvr, nil
 }
 
 // WithURL gives a URL to an AnonymousObject
@@ -229,4 +143,23 @@ func (wu *withURL) Size() int64 {
 
 func (wu *withURL) URL() string {
 	return wu.url
+}
+
+var disableRegisterDefaults bool
+var registerDefaultsOnce sync.Once
+
+// DisableDefaultDrivers is typically used in tests to disable registring the default storage drivers
+func DisableDefaultDrivers() {
+	disableRegisterDefaults = true
+}
+
+func registerDefaults() {
+	if !disableRegisterDefaults {
+		datadriver.RegisterDefaultDriver()
+		filedriver.RegisterDefaultDriver()
+		httpdriver.RegisterDefaultDriver()
+		s3driver.RegisterDefaultDriver()
+		swiftdriver.RegisterDefaultDriver()
+		zerodriver.RegisterDefaultDriver()
+	}
 }

@@ -13,7 +13,7 @@ go_library(
     deps = [
         "//pkg/httputil:go_default_library",
         "//pkg/s3util:go_default_library",
-        "//pkg/storage:go_default_library",
+        "//pkg/storage/driver:go_default_library",
         "//pkg/storage/http:go_default_library",
         "@com_github_aws_aws_sdk_go//aws:go_default_library",
         "@com_github_aws_aws_sdk_go//aws/credentials:go_default_library",

@@ -11,35 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package datadriver
+package driver
 
 import (
-	"bytes"
-
-	"github.com/vincent-petithory/dataurl"
-
-	"github.com/NVIDIA/vdisc/pkg/storage/driver"
+	"io"
 )
 
-type objectWriter struct {
-	buf *bytes.Buffer
+// AnonymousObject represents a read-only, fixed size, random access object.
+type AnonymousObject interface {
+	io.Closer
+	io.Reader
+	io.ReaderAt
+	io.Seeker
+	Size() int64
 }
 
-func (ow *objectWriter) Abort() {
-	ow.buf = nil
-}
-
-func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
-	if ow.buf == nil {
-		return nil, driver.CommitOnAbortedObjectWriter
-	}
-
-	durl := dataurl.New(ow.buf.Bytes(), "binary/octet-stream")
-
-	return driver.NewCommitInfo(durl.String()), nil
-}
-
-func (ow *objectWriter) Write(p []byte) (n int, err error) {
-	n, err = ow.buf.Write(p)
-	return
+// Object represents a AnonymousObject with a URL
+type Object interface {
+	AnonymousObject
+	URL() string
 }

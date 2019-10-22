@@ -11,35 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package datadriver
+package driver
 
 import (
-	"bytes"
-
-	"github.com/vincent-petithory/dataurl"
-
-	"github.com/NVIDIA/vdisc/pkg/storage/driver"
+	"context"
+	"os"
 )
 
-type objectWriter struct {
-	buf *bytes.Buffer
-}
+// Driver is the interface that must be implemented by a storage driver.
+type Driver interface {
+	// Open opens the Object for reading.
+	Open(ctx context.Context, url string, size int64) (Object, error)
 
-func (ow *objectWriter) Abort() {
-	ow.buf = nil
-}
+	// Create an ObjectWriter handle
+	Create(ctx context.Context, url string) (ObjectWriter, error)
 
-func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
-	if ow.buf == nil {
-		return nil, driver.CommitOnAbortedObjectWriter
-	}
+	// Remove an object
+	Remove(ctx context.Context, url string) error
 
-	durl := dataurl.New(ow.buf.Bytes(), "binary/octet-stream")
-
-	return driver.NewCommitInfo(durl.String()), nil
-}
-
-func (ow *objectWriter) Write(p []byte) (n int, err error) {
-	n, err = ow.buf.Write(p)
-	return
+	// Stat returns a FileInfo describing the Object.
+	Stat(ctx context.Context, url string) (os.FileInfo, error)
 }

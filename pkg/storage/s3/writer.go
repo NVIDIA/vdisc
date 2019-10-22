@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 
 	"github.com/NVIDIA/vdisc/pkg/s3util"
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 	writerStateDirect
 )
 
-func NewObjectWriter(svc s3iface.S3API, bucket, key, canonicalURL string) storage.ObjectWriter {
+func NewObjectWriter(svc s3iface.S3API, bucket, key, canonicalURL string) driver.ObjectWriter {
 	return &objectWriter{
 		uploader:     s3util.NewS3Uploader(svc),
 		wg:           &sync.WaitGroup{},
@@ -118,7 +118,7 @@ func (ow *objectWriter) Write(b []byte) (int, error) {
 	return ow.pipeWriter.Write(b)
 }
 
-func (ow *objectWriter) Commit() (storage.CommitInfo, error) {
+func (ow *objectWriter) Commit() (driver.CommitInfo, error) {
 	if atomic.CompareAndSwapInt32(&ow.state, writerStateOpened, writerStatePiped) {
 		// Nothing written yet, start the writer now to produce a zero-byte file.
 		ow.pipeReader, ow.pipeWriter = io.Pipe()
@@ -132,7 +132,7 @@ func (ow *objectWriter) Commit() (storage.CommitInfo, error) {
 	if ow.err != nil {
 		return nil, ow.err
 	}
-	return storage.NewCommitInfo(ow.canonicalURL), nil
+	return driver.NewCommitInfo(ow.canonicalURL), nil
 }
 
 func (ow *objectWriter) Abort() {

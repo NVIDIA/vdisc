@@ -14,7 +14,7 @@ go_library(
     deps = [
         "//pkg/httputil:go_default_library",
         "//pkg/safecast:go_default_library",
-        "//pkg/storage:go_default_library",
+        "//pkg/storage/driver:go_default_library",
         "@org_uber_go_zap//:go_default_library",
     ],
 )

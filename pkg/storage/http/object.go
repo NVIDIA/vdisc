@@ -26,12 +26,12 @@ import (
 
 	"github.com/NVIDIA/vdisc/pkg/httputil"
 	"github.com/NVIDIA/vdisc/pkg/safecast"
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 // NewObject opens an HTTP URL as an Object. If size is negative,
 // a HEAD request will be performed to determine the actual size.
-func NewObject(client *http.Client, url string, u *stdurl.URL, size int64) storage.Object {
+func NewObject(client *http.Client, url string, u *stdurl.URL, size int64) driver.Object {
 	return &object{
 		client: client,
 		url:    url,

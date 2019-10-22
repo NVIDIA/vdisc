@@ -22,12 +22,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	_ "github.com/NVIDIA/vdisc/pkg/storage/data"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/file"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/http"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/s3"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/swift"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/zero"
 	"github.com/NVIDIA/vdisc/pkg/vdisc/cli"
 )
 

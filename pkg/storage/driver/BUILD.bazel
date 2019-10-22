@@ -3,11 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "finfo.go",
+        "driver.go",
         "object.go",
-        "zero.go",
+        "registry.go",
+        "writer.go",
     ],
-    importpath = "github.com/NVIDIA/vdisc/pkg/storage/zero",
+    importpath = "github.com/NVIDIA/vdisc/pkg/storage/driver",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/storage/driver:go_default_library"],
 )

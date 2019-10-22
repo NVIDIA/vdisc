@@ -21,14 +21,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 // Driver is the data URI scheme storage driver.
 // See https://tools.ietf.org/html/rfc2397.
 type Driver struct{}
 
-func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	usize, err := urlToSize(url)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	}, nil
 }
 
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
 	return nil, errors.New("zerodriver: create not implemented")
 }
 
@@ -74,6 +74,6 @@ func urlToSize(url string) (int64, error) {
 	return usize, nil
 }
 
-func init() {
-	storage.Register("zero", &Driver{})
+func RegisterDefaultDriver() {
+	driver.Register("zero", &Driver{})
 }

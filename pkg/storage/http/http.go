@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/NVIDIA/vdisc/pkg/httputil"
-	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/driver"
 )
 
 const (
@@ -38,7 +38,7 @@ type Driver struct {
 	defaultTransport http.RoundTripper
 }
 
-func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
+func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Object, error) {
 	u, err := d.parseURL(url)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 	return NewObject(c, url, u, size), nil
 }
 
-func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
+func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
 	return nil, errors.New("httpdriver: create not implemented")
 }
 
@@ -109,7 +109,7 @@ func (d *Driver) newClient(ctx context.Context) *http.Client {
 	return c
 }
 
-func init() {
+func RegisterDefaultDriver() {
 	t := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		MaxIdleConns:          1024,
@@ -123,8 +123,8 @@ func init() {
 	d := &Driver{
 		defaultTransport: httputil.WithMetrics(t, "http"),
 	}
-	storage.Register("http", d)
-	storage.Register("https", d)
+	driver.Register("http", d)
+	driver.Register("https", d)
 }
 
 func logger() *zap.Logger {
