@@ -79,6 +79,15 @@ func (d *Driver) Remove(ctx context.Context, url string) error {
 	return os.Remove(path)
 }
 
+func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
+	path, err := urlToPath(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.Stat(path)
+}
+
 func urlToPath(url string) (string, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {

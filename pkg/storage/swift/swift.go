@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 	stdurl "net/url"
+	"os"
+	stdpath "path"
 	"strings"
 	"time"
 
@@ -83,6 +85,24 @@ func (d *Driver) Remove(ctx context.Context, url string) error {
 	c := d.newClient(ctx, parsed.Account)
 
 	return httpdriver.Delete(c, url, parsed.URL)
+}
+
+func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	name := stdpath.Base(parsed.URL.Path)
+
+	c := d.newClient(ctx, parsed.Account)
+
+	size, err := httpdriver.Stat(c, parsed.URL.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return httpdriver.NewFileInfo(name, size), nil
 }
 
 func (d *Driver) parseURL(url string) (*parsedURL, error) {

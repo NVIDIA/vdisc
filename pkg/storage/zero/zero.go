@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	stdurl "net/url"
+	"os"
 	"strconv"
 
 	"github.com/NVIDIA/vdisc/pkg/storage"
@@ -28,18 +29,9 @@ import (
 type Driver struct{}
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
-	u, err := stdurl.Parse(url)
+	usize, err := urlToSize(url)
 	if err != nil {
 		return nil, err
-	}
-
-	if u.Scheme != "zero" {
-		return nil, fmt.Errorf("zerodriver: unsupported URI scheme %q", u.Scheme)
-	}
-
-	usize, err := strconv.ParseInt(u.Opaque, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("zerodriver: invalid URI %q", url)
 	}
 
 	return &object{
@@ -54,6 +46,32 @@ func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, 
 
 func (d *Driver) Remove(ctx context.Context, url string) error {
 	return errors.New("zerodriver: remove not implemented")
+}
+
+func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
+	usize, err := urlToSize(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return &finfo{usize}, nil
+}
+
+func urlToSize(url string) (int64, error) {
+	u, err := stdurl.Parse(url)
+	if err != nil {
+		return -1, err
+	}
+
+	if u.Scheme != "zero" {
+		return -1, fmt.Errorf("zerodriver: unsupported URI scheme %q", u.Scheme)
+	}
+
+	usize, err := strconv.ParseInt(u.Opaque, 10, 64)
+	if err != nil {
+		return -1, fmt.Errorf("zerodriver: invalid URI %q", url)
+	}
+	return usize, nil
 }
 
 func init() {

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "data.go",
+        "finfo.go",
         "object.go",
         "writer.go",
     ],

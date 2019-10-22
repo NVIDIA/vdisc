@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net/http"
 	stdurl "net/url"
+	"os"
+	stdpath "path"
 	"time"
 
 	"go.uber.org/zap"
@@ -58,6 +60,24 @@ func (d *Driver) Remove(ctx context.Context, url string) error {
 
 	c := d.newClient(ctx)
 	return Delete(c, url, u)
+}
+
+func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
+	u, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	name := stdpath.Base(u.Path)
+
+	c := d.newClient(ctx)
+
+	size, err := Stat(c, url)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewFileInfo(name, size), nil
 }
 
 func (d *Driver) parseURL(url string) (*stdurl.URL, error) {

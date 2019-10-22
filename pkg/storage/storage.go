@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	stdurl "net/url"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -78,6 +79,9 @@ type Driver interface {
 
 	// Remove an object
 	Remove(ctx context.Context, url string) error
+
+	// Stat returns a FileInfo describing the Object.
+	Stat(ctx context.Context, url string) (os.FileInfo, error)
 }
 
 var (
@@ -152,6 +156,20 @@ func RemoveContext(ctx context.Context, url string) error {
 		return err
 	}
 	return drvr.Remove(ctx, url)
+}
+
+// Stat returns a FileInfo describing the Object
+func Stat(url string) (os.FileInfo, error) {
+	return StatContext(context.Background(), url)
+}
+
+// Stat returns a FileInfo describing the Object
+func StatContext(ctx context.Context, url string) (os.FileInfo, error) {
+	drvr, err := findDriver(url)
+	if err != nil {
+		return nil, err
+	}
+	return drvr.Stat(ctx, url)
 }
 
 func findDriver(url string) (Driver, error) {

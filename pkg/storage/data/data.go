@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 
 	"github.com/vincent-petithory/dataurl"
 
@@ -29,13 +30,13 @@ import (
 type Driver struct{}
 
 func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Object, error) {
-	dataURL, err := dataurl.DecodeString(url)
+	du, err := dataurl.DecodeString(url)
 	if err != nil {
 		return nil, err
 	}
 
-	r := bytes.NewReader(dataURL.Data)
-	sr := io.NewSectionReader(r, 0, int64(len(dataURL.Data)))
+	r := bytes.NewReader(du.Data)
+	sr := io.NewSectionReader(r, 0, int64(len(du.Data)))
 	return &object{
 		url: url,
 		sr:  sr,
@@ -43,13 +44,13 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (storage.Obje
 }
 
 func (d *Driver) Create(ctx context.Context, url string) (storage.ObjectWriter, error) {
-	dataURL, err := dataurl.DecodeString(url)
+	du, err := dataurl.DecodeString(url)
 	if err != nil {
 		return nil, err
 	}
 
 	return &objectWriter{
-		buf: bytes.NewBuffer(dataURL.Data),
+		buf: bytes.NewBuffer(du.Data),
 	}, nil
 }
 
@@ -59,6 +60,15 @@ func (d *Driver) Remove(ctx context.Context, url string) error {
 		return err
 	}
 	return errors.New("datadriver: remove not implemented")
+}
+
+func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
+	du, err := dataurl.DecodeString(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return &finfo{du}, nil
 }
 
 func init() {

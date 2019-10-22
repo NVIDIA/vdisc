@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "context.go",
         "delete.go",
+        "finfo.go",
         "http.go",
         "object.go",
     ],

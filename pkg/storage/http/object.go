@@ -14,7 +14,6 @@
 package httpdriver
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -48,7 +47,6 @@ type object struct {
 	size     int64
 	sizeOnce sync.Once
 	sizeErr  error
-	static   *bytes.Reader
 	pos      int64
 	closed   bool
 }
@@ -65,51 +63,7 @@ func (o *object) Close() error {
 func (o *object) Size() int64 {
 	o.sizeOnce.Do(func() {
 		if o.size < 0 {
-			resp, err := o.client.Head(o.u.String())
-			if err != nil {
-				o.sizeErr = err
-				return
-			}
-
-			defer resp.Body.Close()
-			io.Copy(ioutil.Discard, resp.Body)
-
-			if resp.StatusCode == 404 {
-				o.sizeErr = os.ErrNotExist
-				return
-			}
-
-			if resp.StatusCode == 405 {
-				// Server doesn't support HEAD, download the whole resource up front.
-				resp, err := o.client.Get(o.u.String())
-				if err != nil {
-					o.sizeErr = err
-					return
-				}
-				defer resp.Body.Close()
-				if resp.StatusCode != 200 {
-					o.sizeErr = fmt.Errorf("http get %q: HTTP %d", o.url, resp.StatusCode)
-					return
-				}
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					o.sizeErr = fmt.Errorf("http get %q: %+v", o.url, err)
-					return
-				}
-				o.static = bytes.NewReader(body)
-				return
-			}
-
-			if resp.StatusCode != 200 {
-				o.sizeErr = fmt.Errorf("http head %q: HTTP %d", o.url, resp.StatusCode)
-				return
-			}
-
-			if resp.ContentLength < 0 {
-				o.sizeErr = fmt.Errorf("http head %q: bad content length %d", o.url, resp.ContentLength)
-				return
-			}
-			o.size = resp.ContentLength
+			o.size, o.sizeErr = Stat(o.client, o.u.String())
 		}
 	})
 	return o.size
@@ -137,10 +91,6 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 	if o.sizeErr != nil {
 		err = o.sizeErr
 		return
-	}
-
-	if o.static != nil {
-		return o.static.ReadAt(p, off)
 	}
 
 	if off >= o.size {
