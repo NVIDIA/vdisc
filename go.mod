@@ -21,8 +21,10 @@ require (
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/prometheus/client_golang v1.1.0 // indirect
 	github.com/tnarg/go-tcmu v0.0.0-20191009214205-f11e360617a0 // indirect
+	github.com/vektra/mockery v0.0.0-20180425233116-2a9162cbfb7a // indirect
 	github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	go.uber.org/automaxprocs v1.2.0 // indirect
+	golang.org/x/tools v0.0.0-20181112210238-4b1f3b6b1646 // indirect
 	zombiezen.com/go/capnproto2 v0.0.0-20181004142158-659aba4018b6 // indirect
 )

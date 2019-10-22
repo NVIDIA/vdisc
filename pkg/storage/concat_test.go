@@ -15,16 +15,16 @@
 package storage_test
 
 import (
-	//"errors"
+	"errors"
 	"io"
 	"io/ioutil"
 	"testing"
 
-	//"github.com/stretchr/testify/assert"
-	//"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
-	//rmock "git.nvda.ai/nucleus/src/common/resources/mocks"
 	"github.com/NVIDIA/vdisc/pkg/storage"
+	"github.com/NVIDIA/vdisc/pkg/storage/mock"
 )
 
 func TestConcat(t *testing.T) {
@@ -89,67 +89,67 @@ func TestConcat(t *testing.T) {
 	}
 }
 
-//func TestConcatPartErr(t *testing.T) {
-//	a := &rmock.UnnamedResource{}
-//	b := &rmock.UnnamedResource{}
-//	c := &rmock.UnnamedResource{}
-//
-//	a.On("Size").Return(int64(4))
-//	b.On("Size").Return(int64(5))
-//	c.On("Size").Return(int64(6))
-//
-//	expectedErr := errors.New("fake error")
-//
-//	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
-//	b.On("ReadAt", mock.Anything, int64(0)).Return(1, expectedErr)
-//	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
-//
-//	r := storage.Concat(a, b, c)
-//
-//	buf := make([]byte, 15)
-//	n, actualErr := r.ReadAt(buf, 0)
-//	assert.Equal(t, expectedErr, actualErr)
-//	assert.Equal(t, 5, n)
-//}
-//
-//func TestConcatIgnoreEOF(t *testing.T) {
-//	a := &rmock.UnnamedResource{}
-//	b := &rmock.UnnamedResource{}
-//	c := &rmock.UnnamedResource{}
-//
-//	a.On("Size").Return(int64(4))
-//	b.On("Size").Return(int64(5))
-//	c.On("Size").Return(int64(6))
-//
-//	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
-//	b.On("ReadAt", mock.Anything, int64(0)).Return(5, io.EOF)
-//	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
-//
-//	r := storage.Concat(a, b, c)
-//
-//	buf := make([]byte, 15)
-//	n, actualErr := r.ReadAt(buf, 0)
-//	assert.Nil(t, actualErr)
-//	assert.Equal(t, 15, n)
-//}
-//
-//func TestConcatDontIgnoreEOF(t *testing.T) {
-//	a := &rmock.UnnamedResource{}
-//	b := &rmock.UnnamedResource{}
-//	c := &rmock.UnnamedResource{}
-//
-//	a.On("Size").Return(int64(4))
-//	b.On("Size").Return(int64(5))
-//	c.On("Size").Return(int64(6))
-//
-//	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
-//	b.On("ReadAt", mock.Anything, int64(0)).Return(4, io.EOF)
-//	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
-//
-//	r := storage.Concat(a, b, c)
-//
-//	buf := make([]byte, 15)
-//	n, actualErr := r.ReadAt(buf, 0)
-//	assert.Equal(t, actualErr, io.ErrUnexpectedEOF)
-//	assert.Equal(t, 8, n)
-//}
+func TestConcatPartErr(t *testing.T) {
+	a := &mockdriver.AnonymousObject{}
+	b := &mockdriver.AnonymousObject{}
+	c := &mockdriver.AnonymousObject{}
+
+	a.On("Size").Return(int64(4))
+	b.On("Size").Return(int64(5))
+	c.On("Size").Return(int64(6))
+
+	expectedErr := errors.New("fake error")
+
+	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
+	b.On("ReadAt", mock.Anything, int64(0)).Return(1, expectedErr)
+	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
+
+	r := storage.Concat(a, b, c)
+
+	buf := make([]byte, 15)
+	n, actualErr := r.ReadAt(buf, 0)
+	assert.Equal(t, expectedErr, actualErr)
+	assert.Equal(t, 5, n)
+}
+
+func TestConcatIgnoreEOF(t *testing.T) {
+	a := &mockdriver.AnonymousObject{}
+	b := &mockdriver.AnonymousObject{}
+	c := &mockdriver.AnonymousObject{}
+
+	a.On("Size").Return(int64(4))
+	b.On("Size").Return(int64(5))
+	c.On("Size").Return(int64(6))
+
+	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
+	b.On("ReadAt", mock.Anything, int64(0)).Return(5, io.EOF)
+	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
+
+	r := storage.Concat(a, b, c)
+
+	buf := make([]byte, 15)
+	n, actualErr := r.ReadAt(buf, 0)
+	assert.Nil(t, actualErr)
+	assert.Equal(t, 15, n)
+}
+
+func TestConcatDontIgnoreEOF(t *testing.T) {
+	a := &mockdriver.AnonymousObject{}
+	b := &mockdriver.AnonymousObject{}
+	c := &mockdriver.AnonymousObject{}
+
+	a.On("Size").Return(int64(4))
+	b.On("Size").Return(int64(5))
+	c.On("Size").Return(int64(6))
+
+	a.On("ReadAt", mock.Anything, int64(0)).Return(4, nil)
+	b.On("ReadAt", mock.Anything, int64(0)).Return(4, io.EOF)
+	c.On("ReadAt", mock.Anything, int64(0)).Return(6, nil)
+
+	r := storage.Concat(a, b, c)
+
+	buf := make([]byte, 15)
+	n, actualErr := r.ReadAt(buf, 0)
+	assert.Equal(t, actualErr, io.ErrUnexpectedEOF)
+	assert.Equal(t, 8, n)
+}

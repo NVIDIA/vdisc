@@ -498,3 +498,24 @@ go_repository(
     sum = "h1:tdlZCpZ/P9DhczCTSixgIKmwPv6+wP5DGjqLYw5SUiA=",
     version = "v0.0.0-20190423205320-6a90982ecee2",
 )
+
+go_repository(
+    name = "com_github_gofrs_flock",
+    importpath = "github.com/gofrs/flock",
+    sum = "h1:DP+LD/t0njgoPBvT5MJLeliUIVQR03hiKR6vezdwHlc=",
+    version = "v0.7.1",
+)
+
+go_repository(
+    name = "com_github_vektra_mockery",
+    importpath = "github.com/vektra/mockery",
+    sum = "h1:Dxu6AdfSroPfaOIs6qlIVpzk4Cd8Q4dVW2ezoccWMvw=",
+    version = "v0.0.0-20180425233116-2a9162cbfb7a",
+)
+
+go_repository(
+    name = "org_golang_x_tools",
+    importpath = "golang.org/x/tools",
+    sum = "h1:JEEoTsNEpPwxsebhPLC6P2jNr+6RFZLY4elUBVcMb+I=",
+    version = "v0.0.0-20181112210238-4b1f3b6b1646",
+)
