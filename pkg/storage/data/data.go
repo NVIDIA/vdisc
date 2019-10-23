@@ -71,6 +71,14 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	return &finfo{du}, nil
 }
 
+func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
+	_, err := dataurl.DecodeString(url)
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New("datadriver: readdir not implemented")
+}
+
 func RegisterDefaultDriver() {
 	driver.Register("data", &Driver{})
 }

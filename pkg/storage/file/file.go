@@ -88,6 +88,20 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	return os.Stat(path)
 }
 
+func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
+	path, err := urlToPath(url)
+	if err != nil {
+		return nil, err
+	}
+
+	dir, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	return dir.Readdir(0)
+}
+
 func urlToPath(url string) (string, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {

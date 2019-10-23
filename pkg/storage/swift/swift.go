@@ -102,7 +102,65 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 		return nil, err
 	}
 
-	return httpdriver.NewFileInfo(name, size), nil
+	return &finfo{
+		name:    name,
+		size:    size,
+		mode:    0644,
+		modTime: time.Unix(0, 0).UTC(),
+	}, nil
+}
+
+func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
+	parsed, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	c := d.newClient(ctx, parsed.Account)
+
+	var results []os.FileInfo
+	err = s3util.ListBucket(c, parsed.URL.String(), func(page *s3util.ListBucketPage) error {
+		for _, entry := range page.Version {
+			if !entry.IsLatest {
+				continue
+			}
+			parts := strings.Split(entry.Key, "/")
+			name := parts[len(parts)-1]
+			if name == "" {
+				continue
+			}
+			modTime, err := entry.Modified()
+			if err != nil {
+				return err
+			}
+			results = append(results, &finfo{
+				name:    name,
+				size:    entry.Size,
+				mode:    0644,
+				modTime: modTime,
+				isDir:   false,
+				etag:    entry.ETag,
+				version: entry.VersionId,
+			})
+		}
+
+		for _, entry := range page.CommonPrefixes {
+			parts := strings.Split(entry.Prefix, "/")
+			results = append(results, &finfo{
+				name:    parts[len(parts)-2],
+				size:    4096,
+				mode:    0755,
+				modTime: time.Unix(0, 0).UTC(),
+				isDir:   true,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 func (d *Driver) parseURL(url string) (*parsedURL, error) {

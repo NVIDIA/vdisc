@@ -80,6 +80,14 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	return NewFileInfo(name, size), nil
 }
 
+func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
+	_, err := d.parseURL(url)
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New("httpdriver: readdir not implemented")
+}
+
 func (d *Driver) parseURL(url string) (*stdurl.URL, error) {
 	u, err := stdurl.Parse(url)
 	if err != nil {

@@ -31,4 +31,9 @@ type Driver interface {
 
 	// Stat returns a FileInfo describing the Object.
 	Stat(ctx context.Context, url string) (os.FileInfo, error)
+
+	// Readdir reads the contents of the directory and returns a slice
+	// of FileInfo values, as would be returned by Stat, in directory
+	// order.
+	Readdir(ctx context.Context, url string) ([]os.FileInfo, error)
 }

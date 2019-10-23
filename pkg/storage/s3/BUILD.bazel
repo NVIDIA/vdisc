@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "context.go",
+        "finfo.go",
         "region.go",
         "s3.go",
         "writer.go",

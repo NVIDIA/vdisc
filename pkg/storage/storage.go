@@ -111,6 +111,24 @@ func StatContext(ctx context.Context, url string) (os.FileInfo, error) {
 	return drvr.Stat(ctx, url)
 }
 
+// Readdir reads the contents of the directory and returns a slice of
+// FileInfo values, as would be returned by Stat, in directory order.
+func Readdir(url string) ([]os.FileInfo, error) {
+	return ReaddirContext(context.Background(), url)
+}
+
+// Readdir reads the contents of the directory and returns a slice of
+// FileInfo values, as would be returned by Stat, in directory order.
+func ReaddirContext(ctx context.Context, url string) ([]os.FileInfo, error) {
+	registerDefaultsOnce.Do(registerDefaults)
+
+	drvr, err := driver.Find(url)
+	if err != nil {
+		return nil, err
+	}
+	return drvr.Readdir(ctx, url)
+}
+
 // WithURL gives a URL to an AnonymousObject
 func WithURL(o AnonymousObject, url string) Object {
 	return &withURL{o, url}

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "context.go",
         "creds.go",
+        "finfo.go",
         "region.go",
         "swift.go",
     ],

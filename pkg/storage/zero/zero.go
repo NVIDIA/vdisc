@@ -41,10 +41,18 @@ func (d *Driver) Open(ctx context.Context, url string, size int64) (driver.Objec
 }
 
 func (d *Driver) Create(ctx context.Context, url string) (driver.ObjectWriter, error) {
+	_, err := urlToSize(url)
+	if err != nil {
+		return nil, err
+	}
 	return nil, errors.New("zerodriver: create not implemented")
 }
 
 func (d *Driver) Remove(ctx context.Context, url string) error {
+	_, err := urlToSize(url)
+	if err != nil {
+		return err
+	}
 	return errors.New("zerodriver: remove not implemented")
 }
 
@@ -55,6 +63,14 @@ func (d *Driver) Stat(ctx context.Context, url string) (os.FileInfo, error) {
 	}
 
 	return &finfo{usize}, nil
+}
+
+func (d *Driver) Readdir(ctx context.Context, url string) ([]os.FileInfo, error) {
+	_, err := urlToSize(url)
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New("zerodriver: readdir not implemented")
 }
 
 func urlToSize(url string) (int64, error) {
