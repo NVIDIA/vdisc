@@ -22,6 +22,7 @@ go_library(
         "@com_github_hashicorp_golang_lru//simplelru:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@com_zombiezen_go_capnproto2//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
     ],
 )
 

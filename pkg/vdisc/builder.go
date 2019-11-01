@@ -14,6 +14,7 @@
 package vdisc
 
 import (
+	"bufio"
 	"compress/gzip"
 	"context"
 	"io"
@@ -21,6 +22,7 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	capnp "zombiezen.com/go/capnproto2"
 
 	"github.com/NVIDIA/vdisc/pkg/iso9660"
@@ -146,15 +148,23 @@ func (b *builder) Build() (string, error) {
 	}
 	defer meta.Abort()
 
-	metaLen, err := b.volume.WriteMetadataTo(meta)
+	metabuf := bufio.NewWriterSize(meta, 1024*1024)
+
+	zap.L().Debug("writing metadata")
+	metaLen, err := b.volume.WriteMetadataTo(metabuf)
 	if err != nil {
 		return "", errors.Wrap(err, "writing iso9660 metadata")
+	}
+
+	if err := metabuf.Flush(); err != nil {
+		return "", errors.Wrap(err, "flushing iso9660 metadata")
 	}
 
 	metaCommitInfo, err := meta.Commit()
 	if err != nil {
 		return "", errors.Wrap(err, "closing "+metadataURL)
 	}
+	zap.L().Debug("done writing metadata")
 
 	mu, err := stdurl.Parse(metaCommitInfo.ObjectURL())
 	if err != nil {
@@ -165,6 +175,7 @@ func (b *builder) Build() (string, error) {
 	muBase.Path = path.Base(mu.Path)
 	muBase.RawQuery = mu.RawQuery
 
+	zap.L().Debug("building trie")
 	//
 	// Then build up the inverted trie of object URLs
 	//
@@ -177,7 +188,9 @@ func (b *builder) Build() (string, error) {
 	})
 
 	inverted, leaves := trie.Invert()
+	zap.L().Debug("done building trie")
 
+	zap.L().Debug("building capnp message")
 	//
 	// Create a new vdisc object
 	//
@@ -248,7 +261,9 @@ func (b *builder) Build() (string, error) {
 		currExtent++
 		return nil
 	})
+	zap.L().Debug("done building capnp message")
 
+	zap.L().Debug("writing capnp message")
 	//
 	// Finally, store the vdisc object
 	//
@@ -277,6 +292,7 @@ func (b *builder) Build() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "closing "+b.cfg.URL)
 	}
+	zap.L().Debug("done writing capnp message")
 
 	return vdiscCommitInfo.ObjectURL(), nil
 }
