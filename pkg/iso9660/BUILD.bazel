@@ -48,6 +48,7 @@ go_test(
         "directoryrecord_test.go",
         "pvd_test.go",
         "volume_test.go",
+        "walk_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

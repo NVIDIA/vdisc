@@ -494,9 +494,8 @@ func (it *DirectoryRecordIterator) Next() bool {
 	if it.err != nil {
 		return false
 	}
+	start := it.Tell()
 	for {
-		start := it.Tell()
-
 		rlen, err := readByte(it.dir)
 		if err != nil {
 			it.rec = nil
