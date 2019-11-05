@@ -397,8 +397,8 @@ go_repository(
 go_repository(
     name = "com_github_tnarg_go_tcmu",
     importpath = "github.com/tnarg/go-tcmu",
-    sum = "h1:KQapYJvPfpNT7HlRMyk0zcN2D7tt/0V9PbGGtva3tDA=",
-    version = "v0.0.0-20191104181644-6a88fbf32c11",
+    sum = "h1:FHXPhCerjyWwJcGtBOe/stqTR9uEL0Q5pLCweyYhHEY=",
+    version = "v0.0.0-20191105191714-5c2d9631ef4f",
 )
 
 go_repository(

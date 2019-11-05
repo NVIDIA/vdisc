@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0 // indirect
-	github.com/tnarg/go-tcmu v0.0.0-20191104181644-6a88fbf32c11
+	github.com/tnarg/go-tcmu v0.0.0-20191105191714-5c2d9631ef4f
 	github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/zap v1.10.0

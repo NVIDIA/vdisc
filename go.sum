@@ -105,6 +105,8 @@ github.com/tnarg/go-tcmu v0.0.0-20191009214205-f11e360617a0 h1:ro6uHbac/3l5c/ILO
 github.com/tnarg/go-tcmu v0.0.0-20191009214205-f11e360617a0/go.mod h1:1BLgNzIOR13V+093tip9tqmdPRVxulrsljtCCLisMRM=
 github.com/tnarg/go-tcmu v0.0.0-20191104181644-6a88fbf32c11 h1:KQapYJvPfpNT7HlRMyk0zcN2D7tt/0V9PbGGtva3tDA=
 github.com/tnarg/go-tcmu v0.0.0-20191104181644-6a88fbf32c11/go.mod h1:1BLgNzIOR13V+093tip9tqmdPRVxulrsljtCCLisMRM=
+github.com/tnarg/go-tcmu v0.0.0-20191105191714-5c2d9631ef4f h1:FHXPhCerjyWwJcGtBOe/stqTR9uEL0Q5pLCweyYhHEY=
+github.com/tnarg/go-tcmu v0.0.0-20191105191714-5c2d9631ef4f/go.mod h1:1BLgNzIOR13V+093tip9tqmdPRVxulrsljtCCLisMRM=
 github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb h1:lyL3z7vYwTWXf4/bI+A01+cCSnfhKIBhy+SQ46Z/ml8=
 github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb/go.mod h1:FHafX5vmDzyP+1CQATJn7WFKc9CvnvxyvZy6I1MrG/U=
 go.uber.org/atomic v1.4.0 h1:cxzIVoETapQEqDhQu3QfnvXAV4AlzcvUCxkVUFw3+EU=
