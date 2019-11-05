@@ -363,24 +363,28 @@ func (it *ReadDirIterator) Next() bool {
 
 	size := int64(curr.Length)
 
-	// look ahead to see if there is a next record, and if so, does it
-	// have the same identifier.
-	if it.recIt.Next() {
-		var next *DirectoryRecord
-		var nextLen int64
-		next, nextLen = it.recIt.RecordAndLen()
-		if next.Identifier == curr.Identifier {
-			// This record is a continuation of the current record, so
-			// we just aggregate the lengths.
-			currLen += nextLen
-			size += int64(next.Length)
+	for {
+		// look ahead to see if there is a next record, and if so, does it
+		// have the same identifier.
+		if it.recIt.Next() {
+			var next *DirectoryRecord
+			var nextLen int64
+			next, nextLen = it.recIt.RecordAndLen()
+			if next.Identifier == curr.Identifier {
+				// This record is a continuation of the current record, so
+				// we just aggregate the lengths.
+				currLen += nextLen
+				size += int64(next.Length)
+			} else {
+				it.peeked = next
+				it.peekedLen = nextLen
+				break
+			}
 		} else {
-			it.peeked = next
-			it.peekedLen = nextLen
+			it.exhausted = true
+			it.err = it.recIt.Err()
+			break
 		}
-	} else {
-		it.exhausted = true
-		it.err = it.recIt.Err()
 	}
 
 	// Now we actually construct the FileInfo
