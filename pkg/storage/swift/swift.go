@@ -213,7 +213,7 @@ func (d *Driver) newClient(ctx context.Context, account string) *http.Client {
 		region = GetSwiftRegion()
 	}
 
-	c.Transport = httputil.WithRetries(s3util.NewSigningRoundTripper(d.defaultTransport, credentials.NewCredentials(prov), region))
+	c.Transport = s3util.NewSigningRoundTripper(httputil.WithRetries(d.defaultTransport), credentials.NewCredentials(prov), region)
 	return c
 }
 

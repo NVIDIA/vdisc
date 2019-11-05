@@ -205,7 +205,7 @@ func (d *Driver) getBucketRegion(bucketName string) (string, error) {
 			WithEndpointResolver(endpoints.DefaultResolver()).
 			WithRegion(lreg)
 		creds := defaults.CredChain(cfg, defaults.Handlers())
-		c.Transport = httputil.WithRetries(s3util.NewSigningRoundTripper(d.defaultTransport, creds, lreg))
+		c.Transport = s3util.NewSigningRoundTripper(httputil.WithRetries(d.defaultTransport), creds, lreg)
 		rp = getBucketRegion(c, bucketName)
 		d.bucketRegionCache[bucketName] = rp
 	}
