@@ -51,7 +51,6 @@ func Load(url string, bcache *BufferCache) (VDisc, error) {
 
 	raw, mmapHandle, err := downloadMemoryMapped(url)
 	if err != nil {
-		mmapHandle.Close()
 		return nil, err
 	}
 
