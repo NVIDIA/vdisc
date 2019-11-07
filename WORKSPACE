@@ -446,8 +446,8 @@ go_repository(
 go_repository(
     name = "org_golang_x_net",
     importpath = "golang.org/x/net",
-    sum = "h1:dfGZHvZk057jK2MCeWus/TowKpJ8y4AmooUzdBSR9GU=",
-    version = "v0.0.0-20190613194153-d28f0bde5980",
+    sum = "h1:R/3boaszxrf1GEUWTVDzSKVwLmSJpwZ1yqXm8j0v2QI=",
+    version = "v0.0.0-20190620200207-3b0461eec859",
 )
 
 go_repository(

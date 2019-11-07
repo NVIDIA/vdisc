@@ -27,6 +27,7 @@ require (
 	github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/zap v1.10.0
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/sys v0.0.0-20191009170203-06d7bd2c5f4f
 	zombiezen.com/go/capnproto2 v0.0.0-20181004142158-659aba4018b6
 )
