@@ -80,7 +80,7 @@ Here is the cap'n proto definition of a vdisc
       blockSize @0 :UInt16;
       extents @2 :List(Extent);
     }
-    
+
     struct Extent {
       uri @0 :Text;
       num_blocks @1 :UInt32;
@@ -134,7 +134,7 @@ More usefully, we can map every object in our dataset to a separate extent in a 
       ]
     }
 
-To create one of these vdisc structures (along with the iso metadata file) we can use the `vdisc create` command. As input it takes a CSV file which contains a line for every file to be added to the iso image. For example, the csv for an mnist vdisc might contain
+To create one of these vdisc structures (along with the iso metadata file) we can use the `vdisc burn` command. As input it takes a CSV file which contains a line for every file to be added to the iso image. For example, the csv for an mnist vdisc might contain
 
     "/t10k-images-idx3-ubyte.gz","s3://mybucket/mnist/t10k-images-idx3-ubyte.gz","1648877"
     "/t10k-labels-idx1-ubyte.gz","s3://mybucket/mnist/t10k-labels-idx1-ubyte.gz","4542"
