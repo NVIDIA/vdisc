@@ -138,7 +138,7 @@ func TestVolume(t *testing.T) {
 			target := fmt.Sprintf(fmt.Sprintf("../%s/%%0%dd.txt", test.segmentDir, l), i)
 			err = volume.AddSymlink(pth, target)
 			assert.Nil(t, err)
-			add(fmt.Sprintf("/%s", test.symlinkDir), name, 0, os.ModeSymlink|0777)
+			add(fmt.Sprintf("/%s", test.symlinkDir), name, int64(len(target)), os.ModeSymlink|0777)
 		}
 
 		isow := bytes.NewBuffer(nil)

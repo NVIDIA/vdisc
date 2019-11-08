@@ -407,6 +407,9 @@ func (it *ReadDirIterator) Next() bool {
 
 	isDir := curr.Flags&FileFlagDir != 0
 	target, isSymlink := rrip.DecodeSymlink(systemUse)
+	if isSymlink {
+		size = int64(len(target))
+	}
 	var mode os.FileMode
 	nlink := uint32(1)
 	var uid uint32
