@@ -31,14 +31,6 @@ import (
 	"github.com/NVIDIA/vdisc/pkg/storage/zero"
 )
 
-type mockFileDriver struct {
-	mockdriver.Driver
-	mockdriver.Writable
-	mockdriver.Removable
-	mockdriver.Readdirable
-	mockdriver.Lockable
-}
-
 type mockCloser struct {
 	mock.Mock
 }
@@ -69,7 +61,7 @@ func TestDiskCacheMiss0(t *testing.T) {
 	undo := driver.ClearRegistry()
 	defer undo()
 
-	drvr := &mockFileDriver{}
+	drvr := &mockdriver.ComprehensiveDriver{}
 	datadriver.RegisterDefaultDriver()
 	zerodriver.RegisterDefaultDriver()
 	driver.Register("file", drvr)
@@ -85,15 +77,15 @@ func TestDiskCacheMiss0(t *testing.T) {
 	obj = cache.WithCaching(obj)
 
 	// first, we expect the cache to look for the object
-	drvr.Driver.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(nil, os.ErrNotExist)
+	drvr.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(nil, os.ErrNotExist)
 
 	// when the object isn't found, we expect the cache to acquire a lock for the object
 	unlock := &mockCloser{}
-	drvr.Lockable.On("Lock", context.Background(), "/test/v0/60/.lock.db8a29f0b095e1b5135740e98ff420").Return(unlock, nil)
+	drvr.On("Lock", context.Background(), "/test/v0/60/.lock.db8a29f0b095e1b5135740e98ff420").Return(unlock, nil)
 
 	// Once the lock is acquired, the cache will create a temporary file
 	w := &mockdriver.XattrObjectWriter{}
-	drvr.Writable.On("Create", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420").Return(w, nil)
+	drvr.On("Create", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420").Return(w, nil)
 
 	// Then the cache will write the content to the object and set the appropriate xattrs
 	w.On("Write", []byte("Hello, World!")).Return(13, nil)
@@ -120,7 +112,7 @@ func TestDiskCacheMiss1(t *testing.T) {
 	undo := driver.ClearRegistry()
 	defer undo()
 
-	drvr := &mockFileDriver{}
+	drvr := &mockdriver.ComprehensiveDriver{}
 	datadriver.RegisterDefaultDriver()
 	zerodriver.RegisterDefaultDriver()
 	driver.Register("file", drvr)
@@ -137,7 +129,7 @@ func TestDiskCacheMiss1(t *testing.T) {
 
 	// first, we expect the cache to look for the object
 	xobj := &fakeObj{s: "Hello, World!"}
-	drvr.Driver.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(xobj, nil)
+	drvr.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(xobj, nil)
 
 	// Since the cache found an object, it needs to check the key xattr
 	xobj.On("GetXattr", caching.XattrKey).Return([]byte("garbage"), nil)
@@ -145,11 +137,11 @@ func TestDiskCacheMiss1(t *testing.T) {
 
 	// since the cache object isn't a match, we expect the cache to acquire a lock for the object
 	unlock := &mockCloser{}
-	drvr.Lockable.On("Lock", context.Background(), "/test/v0/60/.lock.db8a29f0b095e1b5135740e98ff420").Return(unlock, nil)
+	drvr.On("Lock", context.Background(), "/test/v0/60/.lock.db8a29f0b095e1b5135740e98ff420").Return(unlock, nil)
 
 	// Once the lock is acquired, the cache will create a temporary file
 	w := &mockdriver.XattrObjectWriter{}
-	drvr.Writable.On("Create", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420").Return(w, nil)
+	drvr.On("Create", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420").Return(w, nil)
 
 	// Then the cache will write the content to the object and set the appropriate xattrs
 	w.On("Write", []byte("Hello, World!")).Return(13, nil)
@@ -175,7 +167,7 @@ func TestDiskCacheHit0(t *testing.T) {
 	undo := driver.ClearRegistry()
 	defer undo()
 
-	drvr := &mockFileDriver{}
+	drvr := &mockdriver.ComprehensiveDriver{}
 	datadriver.RegisterDefaultDriver()
 	zerodriver.RegisterDefaultDriver()
 	driver.Register("file", drvr)
@@ -192,7 +184,7 @@ func TestDiskCacheHit0(t *testing.T) {
 
 	// first, we expect the cache to look for the object
 	xobj := &fakeObj{s: "Hello, World!"}
-	drvr.Driver.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(xobj, nil)
+	drvr.On("Open", context.Background(), "/test/v0/60/db8a29f0b095e1b5135740e98ff420", int64(-1)).Return(xobj, nil)
 
 	// Since the cache found an object, it needs to check the key xattr
 	xobj.On("GetXattr", caching.XattrKey).Return([]byte("{\"url\":\"data:,Hello%2C%20World!\",\"off\":0,\"len\":13}"), nil)
@@ -209,7 +201,7 @@ func TestDiskCacheHit1(t *testing.T) {
 	undo := driver.ClearRegistry()
 	defer undo()
 
-	drvr := &mockFileDriver{}
+	drvr := &mockdriver.ComprehensiveDriver{}
 	datadriver.RegisterDefaultDriver()
 	zerodriver.RegisterDefaultDriver()
 	driver.Register("file", drvr)
@@ -226,7 +218,7 @@ func TestDiskCacheHit1(t *testing.T) {
 
 	// first, we expect the cache to look for the object
 	xobj := &fakeObj{s: "Hello, Wor"}
-	drvr.Driver.On("Open", context.Background(), "/test/v0/46/a075896c3d16a41e4000bf5ba9b79d", int64(-1)).Return(xobj, nil)
+	drvr.On("Open", context.Background(), "/test/v0/46/a075896c3d16a41e4000bf5ba9b79d", int64(-1)).Return(xobj, nil)
 
 	// Since the cache found an object, it needs to check the key xattr
 	xobj.On("GetXattr", caching.XattrKey).Return([]byte("{\"url\":\"data:,Hello%2C%20World!\",\"off\":0,\"len\":10}"), nil)
@@ -234,7 +226,7 @@ func TestDiskCacheHit1(t *testing.T) {
 
 	// first, we expect the cache to look for the object
 	xobj2 := &fakeObj{s: "ld!"}
-	drvr.Driver.On("Open", context.Background(), "/test/v0/67/260b3bab0abe40bd657ba0bf92729a", int64(-1)).Return(xobj2, nil)
+	drvr.On("Open", context.Background(), "/test/v0/67/260b3bab0abe40bd657ba0bf92729a", int64(-1)).Return(xobj2, nil)
 
 	// Since the cache found an object, it needs to check the key xattr
 	xobj2.On("GetXattr", caching.XattrKey).Return([]byte("{\"url\":\"data:,Hello%2C%20World!\",\"off\":10,\"len\":3}"), nil)

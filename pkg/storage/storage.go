@@ -48,6 +48,31 @@ type CommitInfo interface {
 	driver.CommitInfo
 }
 
+// Visitor is used with Visit to recursively traverse a directory hierarchy
+type Visitor interface {
+	driver.Visitor
+}
+
+// VisitorPredicate is used to extend Visitor to control which directories are visited
+type VisitorPredicate interface {
+	driver.Visitor
+	driver.VisitorPredicate
+}
+
+// VisitorTraversal is used to extend Visitor to control depth-first
+// vs breadth-first traversal. The default for visitors that do not
+// implement VisitorTraversal is breadth-first.
+type VisitorTraversal interface {
+	driver.Visitor
+	driver.VisitorTraversal
+}
+
+// VisitorConcurrency is used to extend Visitor to control the concurrency of recursive descent.
+type VisitorConcurrency interface {
+	driver.Visitor
+	driver.VisitorConcurrency
+}
+
 // Open opens the Object for reading.
 func Open(url string) (Object, error) {
 	return OpenContextSize(context.Background(), url, -1)
@@ -75,7 +100,7 @@ func CreateContext(ctx context.Context, url string) (ObjectWriter, error) {
 	}
 
 	switch mdrvr := drvr.(type) {
-	case driver.Writable:
+	case driver.Creator:
 		return mdrvr.Create(ctx, url)
 	default:
 		return nil, errors.New(drvr.Name() + ": create not implemented")
@@ -95,7 +120,7 @@ func RemoveContext(ctx context.Context, url string) error {
 	}
 
 	switch mdrvr := drvr.(type) {
-	case driver.Removable:
+	case driver.Remover:
 		return mdrvr.Remove(ctx, url)
 	default:
 		return errors.New(drvr.Name() + ": remove not implemented")
@@ -131,7 +156,7 @@ func ReaddirContext(ctx context.Context, url string) ([]os.FileInfo, error) {
 	}
 
 	switch rdrvr := drvr.(type) {
-	case driver.Readdirable:
+	case driver.Readdirer:
 		return rdrvr.Readdir(ctx, url)
 	default:
 		return nil, errors.New(drvr.Name() + ": readdir not implemented")
@@ -155,7 +180,7 @@ func LockContext(ctx context.Context, url string) (io.Closer, error) {
 	}
 
 	switch ldrvr := drvr.(type) {
-	case driver.Lockable:
+	case driver.Locker:
 		return ldrvr.Lock(ctx, url)
 	default:
 		return nil, errors.New(drvr.Name() + ": lock not implemented")
@@ -176,10 +201,30 @@ func RLockContext(ctx context.Context, url string) (io.Closer, error) {
 		return nil, err
 	}
 	switch ldrvr := drvr.(type) {
-	case driver.Lockable:
+	case driver.Locker:
 		return ldrvr.RLock(ctx, url)
 	default:
 		return nil, errors.New(drvr.Name() + ": rlock not implemented")
+	}
+}
+
+// Recursively visit a directory hierarchy
+func Visit(url string, visitor Visitor) error {
+	return VisitContext(context.Background(), url, visitor)
+}
+
+// Recursively visit a directory hierarchy
+func VisitContext(ctx context.Context, url string, visitor Visitor) error {
+	drvr, err := driver.Find(url)
+	if err != nil {
+		return err
+	}
+
+	switch rdrvr := drvr.(type) {
+	case driver.Readdirer:
+		return driver.Visit(ctx, rdrvr, url, visitor)
+	default:
+		return errors.New(drvr.Name() + ": readdir not implemented")
 	}
 }
 

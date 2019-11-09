@@ -31,24 +31,24 @@ type Driver interface {
 	Stat(ctx context.Context, url string) (os.FileInfo, error)
 }
 
-type Writable interface {
+type Creator interface {
 	// Create an ObjectWriter handle
 	Create(ctx context.Context, url string) (ObjectWriter, error)
 }
 
-type Removable interface {
+type Remover interface {
 	// Remove an object
 	Remove(ctx context.Context, url string) error
 }
 
-type Readdirable interface {
+type Readdirer interface {
 	// Readdir reads the contents of the directory and returns a slice
 	// of FileInfo values, as would be returned by Stat, in directory
 	// order.
 	Readdir(ctx context.Context, url string) ([]os.FileInfo, error)
 }
 
-type Lockable interface {
+type Locker interface {
 	// Lock acquires an advisory exclusive lock on the object
 	// specified, potentially creating it if it does not already
 	// exist.
@@ -57,4 +57,13 @@ type Lockable interface {
 	// RLock acquires an advisory shared lock on the object specified,
 	// potentially creating it if it does not already exist.
 	RLock(ctx context.Context, url string) (io.Closer, error)
+}
+
+// Useful for mocking
+type ComprehensiveDriver interface {
+	Driver
+	Creator
+	Remover
+	Readdirer
+	Locker
 }
