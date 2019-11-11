@@ -16,7 +16,6 @@ package unixcompat
 
 import (
 	"syscall"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -40,10 +39,4 @@ func Major(dev uint64) uint32 {
 
 func Minor(dev uint64) uint32 {
 	return unix.Minor(dev)
-}
-
-func MaybeNanosleep(d time.Duration) {
-	ts := syscall.NsecToTimespec(d.Nanoseconds())
-	var lf syscall.Timespec
-	syscall.Nanosleep(&ts, &lf)
 }

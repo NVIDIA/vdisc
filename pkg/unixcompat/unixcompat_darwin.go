@@ -17,7 +17,6 @@ package unixcompat
 import (
 	"errors"
 	"syscall"
-	"time"
 )
 
 var MNT_FORCE int
@@ -42,5 +41,3 @@ func Major(dev int32) uint32 {
 func Minor(dev int32) uint32 {
 	panic(errNotImpl)
 }
-
-func MaybeNanosleep(d time.Duration) {}

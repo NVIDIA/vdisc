@@ -21,14 +21,12 @@ import (
 	stdurl "net/url"
 	"os"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/NVIDIA/vdisc/pkg/httputil"
 	"github.com/NVIDIA/vdisc/pkg/safecast"
 	"github.com/NVIDIA/vdisc/pkg/storage/driver"
-	"github.com/NVIDIA/vdisc/pkg/unixcompat"
 )
 
 // NewObject opens an HTTP URL as an Object. If size is negative,
@@ -155,7 +153,7 @@ func (o *object) ReadAt(p []byte, off int64) (n int, err error) {
 		return
 	}
 
-	n, err = sleepyReadFull(resp.Body, p[:resp.ContentLength])
+	n, err = io.ReadFull(resp.Body, p[:resp.ContentLength])
 	if err == nil && safecast.IntToUint64(n) < contentRange.Len() {
 		err = fmt.Errorf("http get %q: Content-Length=%d, read=%d, %s", o.url, resp.ContentLength, n, io.ErrUnexpectedEOF)
 		return
@@ -188,27 +186,4 @@ func (o *object) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	return o.pos, nil
-}
-
-// Like io.ReadFull but with nanosleeps
-func sleepyReadFull(r io.Reader, buf []byte) (n int, err error) {
-	min := len(buf)
-
-	cond := n < min && err == nil
-	for cond {
-		var nn int
-		nn, err = r.Read(buf[n:])
-		n += nn
-
-		cond = n < min && err == nil
-		if cond {
-			unixcompat.MaybeNanosleep(1 * time.Millisecond)
-		}
-	}
-	if n >= min {
-		err = nil
-	} else if n > 0 && err == io.EOF {
-		err = io.ErrUnexpectedEOF
-	}
-	return
 }
