@@ -5,6 +5,34 @@
 VDisc supports reading file data from different URL schemes. These are
 documented below.
 
+## data
+
+`data:[<media type>][;base64],<data>`
+
+The data URL scheme is described at https://en.wikipedia.org/wiki/Data_URI_scheme
+
+## file
+
+`file:///<path/to/local/file>`
+
+TODO
+
+## http
+
+`https://<endpoint>/<object>`
+
+TODO
+
+## S3
+
+`s3://<bucket>/<object>`
+
+TODO
+
+### Auth considerations
+
+TODO
+
 ## Swift / s3api
 
 `swift://<endpoint>/<owner>/<container>/<object>`
@@ -40,38 +68,9 @@ By default, VDisc uses the `us-east-1` region. If your Swift cluster is
 configured with a different s3api region, set the correct value in the
 `SWIFT_REGION` environment variable.
 
-
-## http
-
-`https://<endpoint>/<object>`
-
-TODO
-
-## S3
-
-`s3://<bucket>/<object>`
-
-TODO
-
-### Auth considerations
-
-TODO
-
 ## zero
 
 `zero:<length>`
 
 Returns a byte stream with a fixed length. eg `zero:72` is a stream of
 72 null bytes. This is useful for testing.
-
-## data
-
-`data:[<media type>][;base64],<data>`
-
-The data URL scheme is described at https://en.wikipedia.org/wiki/Data_URI_scheme
-
-## file
-
-`file:///<path/to/local/file>`
-
-TODO
