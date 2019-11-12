@@ -10,7 +10,7 @@ documented below.
   * [data](#data)
   * [file](#file)
   * [S3](#S3)
-  * [Swift](#swift-/-s3api)
+  * [Swift](#swift--s3api)
   * [zero](#zero)
 
 ## data
