@@ -9,6 +9,7 @@ documented below.
 
   * [data](#data)
   * [file](#file)
+  * [http](#file)
   * [S3](#S3)
   * [Swift](#swift--s3api)
   * [zero](#zero)
