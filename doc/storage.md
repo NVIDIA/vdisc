@@ -5,6 +5,14 @@
 VDisc supports reading file data from different URL schemes. These are
 documented below.
 
+## Table of Contents
+
+  * [data](#data)
+  * [file](#file)
+  * [S3](#S3)
+  * [Swift](#swift-/-s3api)
+  * [zero](#zero)
+
 ## data
 
 `data:[<media type>][;base64],<data>`
@@ -29,7 +37,7 @@ TODO
 
 TODO
 
-### Auth considerations
+### S3 Auth considerations
 
 TODO
 
@@ -57,7 +65,7 @@ The URL schema has four key parts:
 `<object>`
 :   The name of the object. The object name may include the `/` character.
 
-### Auth considerations
+### Swift Auth considerations
 
 VDisc uses the following environment variables for `swift` auth:
 
