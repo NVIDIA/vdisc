@@ -37,8 +37,8 @@ import (
 )
 
 const (
-	XattrKey      = "vdisc-cache-key"
-	XattrChecksum = "vdisc-cache-checksum"
+	XattrKey      = "user.vdisc-cache-key"
+	XattrChecksum = "user.vdisc-cache-checksum"
 )
 
 type GcThreshold interface {
