@@ -102,7 +102,7 @@ func (fs *isoFS) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) err
 	fs.finfosMU.RUnlock()
 
 	// Sequentially scan the directory looking for Name
-	it := iso9660.NewReadDirIterator(fs.vdisc.Image(), entry.Info.Extent(), entry.Info.Size(), 0)
+	it := iso9660.NewReadDirIterator(fs.volume.Image(), entry.Info.Extent(), entry.Info.Size(), 0)
 	for it.Next() {
 		child, _ := it.FileInfoAndLen()
 		fs.finfoCache.Put(op.Parent, child.Name(), child)
@@ -166,7 +166,7 @@ func (fs *isoFS) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	}
 	fs.finfosMU.RUnlock()
 
-	it := iso9660.NewReadDirIterator(fs.vdisc.Image(), entry.Info.Extent(), entry.Info.Size(), safecast.Uint64ToInt64(uint64(op.Offset)))
+	it := iso9660.NewReadDirIterator(fs.volume.Image(), entry.Info.Extent(), entry.Info.Size(), safecast.Uint64ToInt64(uint64(op.Offset)))
 
 	off := op.Offset
 	for it.Next() {

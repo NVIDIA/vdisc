@@ -14,7 +14,6 @@ go_library(
         "//pkg/iso9660:go_default_library",
         "//pkg/safecast:go_default_library",
         "//pkg/storage:go_default_library",
-        "//pkg/vdisc:go_default_library",
         "@com_github_dgraph_io_ristretto//:go_default_library",
         "@com_github_jacobsa_fuse//:go_default_library",
         "@com_github_jacobsa_fuse//fuseops:go_default_library",

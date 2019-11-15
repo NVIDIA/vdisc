@@ -36,7 +36,7 @@ func (fs *isoFS) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
 	}
 	fs.finfosMU.RUnlock()
 
-	obj, err := fs.vdisc.OpenExtent(entry.Info.Extent())
+	obj, err := fs.volume.OpenExtent(entry.Info.Extent())
 	if err != nil {
 		fs.logger.Error("open extent", zap.Error(err))
 		return fuse.EINVAL

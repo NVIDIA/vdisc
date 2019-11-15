@@ -29,7 +29,6 @@ import (
 	"github.com/NVIDIA/vdisc/pkg/iso9660"
 	"github.com/NVIDIA/vdisc/pkg/safecast"
 	"github.com/NVIDIA/vdisc/pkg/storage"
-	"github.com/NVIDIA/vdisc/pkg/vdisc"
 )
 
 // Config is used to configure a Server
@@ -37,16 +36,21 @@ type Options struct {
 	AllowOtherUsers bool `help:"Allow other users to access the fuse mount"`
 }
 
+type Volume interface {
+	Image() storage.AnonymousObject
+	OpenExtent(lba iso9660.LogicalBlockAddress) (storage.Object, error)
+}
+
 // NewServer creates an instance of an isofuse server
-func NewWithOptions(mountpoint string, vdisc vdisc.VDisc, opts Options) (*Server, error) {
+func NewWithOptions(mountpoint string, volume Volume, opts Options) (*Server, error) {
 	var pvd iso9660.PrimaryVolumeDescriptor
-	pvdSector := io.NewSectionReader(vdisc.Image(), 16*iso9660.LogicalBlockSize, iso9660.LogicalBlockSize)
+	pvdSector := io.NewSectionReader(volume.Image(), 16*iso9660.LogicalBlockSize, iso9660.LogicalBlockSize)
 	if err := iso9660.DecodePrimaryVolumeDescriptor(pvdSector, &pvd); err != nil {
 		return nil, err
 	}
 
 	l := zap.L().Named("isofuse")
-	fs, err := newIsoFS(l, vdisc, &pvd)
+	fs, err := newIsoFS(l, volume, &pvd)
 	if err != nil {
 		return nil, err
 	}
@@ -151,14 +155,14 @@ func (s *Server) join() {
 
 var errUnknownInode = errors.New("unknown inode")
 
-func newIsoFS(logger *zap.Logger, v vdisc.VDisc, pvd *iso9660.PrimaryVolumeDescriptor) (*isoFS, error) {
+func newIsoFS(logger *zap.Logger, v Volume, pvd *iso9660.PrimaryVolumeDescriptor) (*isoFS, error) {
 	c, err := NewFileInfoCache(100000)
 	if err != nil {
 		return nil, err
 	}
 	fs := &isoFS{
 		logger:         logger,
-		vdisc:          v,
+		volume:         v,
 		finfos:         make(map[fuseops.InodeID]*finfosEntry),
 		finfoCache:     c,
 		nextFileHandle: 1,
@@ -168,7 +172,7 @@ func newIsoFS(logger *zap.Logger, v vdisc.VDisc, pvd *iso9660.PrimaryVolumeDescr
 	// prime the root directory inode info
 	it := iso9660.NewReadDirIterator(v.Image(), pvd.RootStart, int64(pvd.RootLength), 0)
 	if !it.Next() {
-		return nil, errors.New("bad vdisc root directory")
+		return nil, errors.New("bad iso9660 root directory")
 	}
 	root, _ := it.FileInfoAndLen()
 	fs.finfos[1] = &finfosEntry{
@@ -182,7 +186,7 @@ type isoFS struct {
 
 	logger *zap.Logger
 
-	vdisc vdisc.VDisc
+	volume Volume
 
 	mfs *fuse.MountedFileSystem
 
@@ -198,8 +202,8 @@ type isoFS struct {
 
 // StartFS returns information about file system capacity and resources
 func (fs *isoFS) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
-	op.BlockSize = uint32(fs.vdisc.BlockSize())
-	op.Blocks = safecast.Int64ToUint64(fs.vdisc.Image().Size()) / uint64(fs.vdisc.BlockSize())
+	op.BlockSize = uint32(iso9660.LogicalBlockSize)
+	op.Blocks = safecast.Int64ToUint64(fs.volume.Image().Size()) / uint64(iso9660.LogicalBlockSize)
 	op.IoSize = 4194304
 	return nil
 }
