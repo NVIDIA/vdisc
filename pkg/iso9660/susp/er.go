@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package susp
 
 import (
@@ -59,27 +58,27 @@ func (er *ExtensionsReferenceEntry) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, byte(er.Len())); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, 1); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, byte(len(er.identifier))); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, byte(len(er.descriptor))); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, byte(len(er.source))); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, er.version); err != nil {
 		return
 	}
-	n += 1
+	n++
 	m, err = io.WriteString(w, er.identifier)
 	n += int64(m)
 	if err != nil {

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package susp
 
 import (
@@ -47,11 +46,11 @@ func (st *TerminatorEntry) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, byte(st.Len())); err != nil {
 		return
 	}
-	n += 1
+	n++
 	// Version 1 Always
 	if err = writeByte(w, 0x01); err != nil {
 		return
 	}
-	n += 1
+	n++
 	return
 }

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package rrip
 
 import (
@@ -83,11 +82,11 @@ func (tf *Timestamps) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, expectedLength); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, 1); err != nil {
 		return
 	}
-	n += 1
+	n++
 
 	var flags byte
 	if tf.Created != nil {
@@ -118,7 +117,7 @@ func (tf *Timestamps) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, flags); err != nil {
 		return
 	}
-	n += 1
+	n++
 
 	writeTimestamp := func(t time.Time) {
 		var et []byte

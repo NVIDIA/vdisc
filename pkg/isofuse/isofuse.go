@@ -152,7 +152,6 @@ func (s *Server) join() {
 	close(s.joined)
 }
 
-
 var errUnknownInode = errors.New("unknown inode")
 
 func newIsoFS(logger *zap.Logger, v Volume, pvd *iso9660.PrimaryVolumeDescriptor) (*isoFS, error) {

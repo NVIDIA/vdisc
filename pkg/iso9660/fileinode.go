@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package iso9660
 
 import (
@@ -85,7 +84,7 @@ func (f *FileInode) SetModified(modified time.Time) {
 }
 
 func (f *FileInode) AddParent(parent *DirectoryInode) {
-	f.nlink += 1
+	f.nlink++
 }
 
 func (f *FileInode) Nlink() uint32 {

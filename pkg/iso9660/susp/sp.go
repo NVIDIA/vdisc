@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package susp
 
 import (
@@ -49,26 +48,26 @@ func (sp *SharingProtocolEntry) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, byte(sp.Len())); err != nil {
 		return
 	}
-	n += 1
+	n++
 	// Version 1 Always
 	if err = writeByte(w, 0x01); err != nil {
 		return
 	}
-	n += 1
+	n++
 	// Check Byte BE
 	if err = writeByte(w, 0xBE); err != nil {
 		return
 	}
-	n += 1
+	n++
 	// Check Byte EF
 	if err = writeByte(w, 0xEF); err != nil {
 		return
 	}
-	n += 1
+	n++
 	// LEN_SKP
 	if err = writeByte(w, sp.lenSkp); err != nil {
 		return
 	}
-	n += 1
+	n++
 	return
 }

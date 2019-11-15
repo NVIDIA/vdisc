@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package rrip
 
 import (
@@ -37,11 +36,11 @@ type PosixEntry struct {
 	Ino   uint32
 }
 
-func (px *PosixEntry) Len() int {
+func (pe *PosixEntry) Len() int {
 	return PosixEntryLength
 }
 
-func (px *PosixEntry) WriteTo(w io.Writer) (n int64, err error) {
+func (pe *PosixEntry) WriteTo(w io.Writer) (n int64, err error) {
 	var m int
 
 	m, err = io.WriteString(w, "PX")
@@ -49,31 +48,31 @@ func (px *PosixEntry) WriteTo(w io.Writer) (n int64, err error) {
 	if err != nil {
 		return
 	}
-	if err = writeByte(w, byte(px.Len())); err != nil {
+	if err = writeByte(w, byte(pe.Len())); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, 1); err != nil {
 		return
 	}
-	n += 1
-	if err = putBothUint32(w, uint32(px.Mode)); err != nil {
+	n++
+	if err = putBothUint32(w, uint32(pe.Mode)); err != nil {
 		return
 	}
 	n += 8
-	if err = putBothUint32(w, px.Nlink); err != nil {
+	if err = putBothUint32(w, pe.Nlink); err != nil {
 		return
 	}
 	n += 8
-	if err = putBothUint32(w, px.Uid); err != nil {
+	if err = putBothUint32(w, pe.Uid); err != nil {
 		return
 	}
 	n += 8
-	if err = putBothUint32(w, px.Gid); err != nil {
+	if err = putBothUint32(w, pe.Gid); err != nil {
 		return
 	}
 	n += 8
-	if err = putBothUint32(w, px.Ino); err != nil {
+	if err = putBothUint32(w, pe.Ino); err != nil {
 		return
 	}
 	n += 8

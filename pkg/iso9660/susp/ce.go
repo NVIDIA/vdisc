@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package susp
 
 import (
@@ -61,11 +60,11 @@ func (ce *ContinuationAreaEntry) WriteTo(w io.Writer) (n int64, err error) {
 	if err = writeByte(w, byte(ce.Len())); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = writeByte(w, 1); err != nil {
 		return
 	}
-	n += 1
+	n++
 	if err = putBothUint32(w, ce.start); err != nil {
 		return
 	}

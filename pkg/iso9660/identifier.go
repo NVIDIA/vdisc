@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package iso9660
 
 import (
@@ -36,7 +35,7 @@ func NewIdentifierAllocator() *IdentifierAllocator {
 func (ia *IdentifierAllocator) Next() string {
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, ia.count)
-	ia.count += 1
+	ia.count++
 	src := buf[:n]
 
 	dst := make([]byte, shortEncoding.EncodedLen(len(src)))

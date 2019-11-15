@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package iso9660
 
 import (
@@ -73,22 +72,22 @@ func (ca *ContinuationArea) Append(entries []susp.SystemUseEntry) *susp.Continua
 			ca.sectors[lastSector].entries = append(ca.sectors[lastSector].entries, tmpEntries...)
 
 			return susp.NewContinuationAreaEntry(uint32(ca.start)+uint32(lastSector), uint32(ceOffset), uint32(baseLen))
-		} else {
-			// We're going to spill over into the next sector. We
-			// append all the entries that will fit and update the
-			// room to include a CE pointing to the next sector. Once
-			// we've reserved space, we recursively call Append with
-			// the overflowing entries, effectively chaining system
-			// use areas together with CE entries.
-			ceOffset := LogicalBlockSize - ca.sectors[lastSector].room
-			ca.sectors[lastSector].room -= baseLen + extraLen
-			ca.sectors[lastSector].entries = append(ca.sectors[lastSector].entries, tmpEntries...)
-
-			nextCE := ca.Append(overflow)
-			ca.sectors[lastSector].entries = append(ca.sectors[lastSector].entries, nextCE)
-
-			return susp.NewContinuationAreaEntry(uint32(ca.start)+uint32(lastSector), uint32(ceOffset), uint32(baseLen+extraLen))
 		}
+
+		// We're going to spill over into the next sector. We
+		// append all the entries that will fit and update the
+		// room to include a CE pointing to the next sector. Once
+		// we've reserved space, we recursively call Append with
+		// the overflowing entries, effectively chaining system
+		// use areas together with CE entries.
+		ceOffset := LogicalBlockSize - ca.sectors[lastSector].room
+		ca.sectors[lastSector].room -= baseLen + extraLen
+		ca.sectors[lastSector].entries = append(ca.sectors[lastSector].entries, tmpEntries...)
+
+		nextCE := ca.Append(overflow)
+		ca.sectors[lastSector].entries = append(ca.sectors[lastSector].entries, nextCE)
+
+		return susp.NewContinuationAreaEntry(uint32(ca.start)+uint32(lastSector), uint32(ceOffset), uint32(baseLen+extraLen))
 	}
 }
 

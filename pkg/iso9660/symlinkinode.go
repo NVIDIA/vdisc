@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package iso9660
 
 import (
@@ -98,9 +97,8 @@ func (s *SymlinkInode) AddParent(parent *DirectoryInode) {
 func (s *SymlinkInode) Nlink() uint32 {
 	if s.parent == nil {
 		return 0
-	} else {
-		return 1
 	}
+	return 1
 }
 
 func (s *SymlinkInode) IsRoot() bool {
