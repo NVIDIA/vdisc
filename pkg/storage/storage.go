@@ -79,6 +79,11 @@ func Open(url string) (Object, error) {
 	return OpenContextSize(context.Background(), url, -1)
 }
 
+// Open opens the Object for reading.
+func OpenSize(url string, size int64) (Object, error) {
+	return OpenContextSize(context.Background(), url, size)
+}
+
 // Open opens the Object with the context and declared size.
 func OpenContextSize(ctx context.Context, url string, size int64) (Object, error) {
 	drvr, err := driver.Find(url)
@@ -261,6 +266,71 @@ func (wu *withURL) Size() int64 {
 
 func (wu *withURL) URL() string {
 	return wu.url
+}
+
+// Slice returns an AnonymousObject that reads from o
+// starting at offset off and stops with EOF after n bytes.
+func Slice(o AnonymousObject, off int64, n int64) AnonymousObject {
+	return &slice{o, off, off, off + n}
+}
+
+type slice struct {
+	o     AnonymousObject
+	base  int64
+	off   int64
+	limit int64
+}
+
+func (s *slice) Read(p []byte) (n int, err error) {
+	if s.off >= s.limit {
+		return 0, io.EOF
+	}
+	if max := s.limit - s.off; int64(len(p)) > max {
+		p = p[0:max]
+	}
+	n, err = s.o.ReadAt(p, s.off)
+	s.off += int64(n)
+	return
+}
+
+func (s *slice) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	default:
+		return 0, errors.New("Seek: invalid whence")
+	case io.SeekStart:
+		offset += s.base
+	case io.SeekCurrent:
+		offset += s.off
+	case io.SeekEnd:
+		offset += s.limit
+	}
+	if offset < s.base {
+		return 0, errors.New("Seek: invalid offset")
+	}
+	s.off = offset
+	return offset - s.base, nil
+}
+
+func (s *slice) ReadAt(p []byte, off int64) (n int, err error) {
+	if off < 0 || off >= s.limit-s.base {
+		return 0, io.EOF
+	}
+	off += s.base
+	if max := s.limit - off; int64(len(p)) > max {
+		p = p[0:max]
+		n, err = s.o.ReadAt(p, off)
+		if err == nil {
+			err = io.EOF
+		}
+		return n, err
+	}
+	return s.o.ReadAt(p, off)
+}
+
+func (s *slice) Size() int64 { return s.limit - s.base }
+
+func (s *slice) Close() error {
+	return s.o.Close()
 }
 
 func init() {
