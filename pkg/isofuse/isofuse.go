@@ -57,6 +57,7 @@ func NewWithOptions(mountpoint string, vdisc vdisc.VDisc, opts Options) (*Server
 		logger:      l,
 		allowOthers: opts.AllowOtherUsers,
 		fs:          fs,
+		joined:      make(chan interface{}),
 		err:         make(chan error),
 	}, nil
 }
@@ -67,6 +68,7 @@ type Server struct {
 	logger      *zap.Logger // Logger used for logging
 	allowOthers bool        // security override, allow all users to access the files
 	fs          *isoFS
+	joined      chan interface{}
 	err         chan error // Error channel between serve thread and close
 }
 
@@ -101,6 +103,7 @@ func (s *Server) Start() error {
 	}
 	s.fs.mfs = mfs
 	go s.serve()
+	go s.join()
 
 	return nil
 
@@ -122,6 +125,10 @@ func (s *Server) Close() error {
 	return <-s.err
 }
 
+func (s *Server) Join() chan interface{} {
+	return s.joined
+}
+
 func (s *Server) serve() {
 	s.logger.Info("Started")
 
@@ -135,6 +142,12 @@ func (s *Server) serve() {
 
 	return
 }
+
+func (s *Server) join() {
+	s.fs.mfs.Join(context.Background())
+	close(s.joined)
+}
+
 
 var errUnknownInode = errors.New("unknown inode")
 

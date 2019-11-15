@@ -71,11 +71,15 @@ func (cmd *MountCmd) doFuse(v vdisc.VDisc) {
 		zap.L().Fatal("start", zap.Error(err))
 	}
 
-	// Block until we receive a signal on the channel
-	<-sigchan
-
-	// Shutdown now that we've received the signal
-	if err := fs.Close(); err != nil {
-		zap.L().Fatal("shutdown error", zap.Error(err))
+	// Block until we receive a signal or the file system is unmounted
+	select {
+	case sig := <-sigchan:
+		zap.L().Info("exiting: received signal", zap.String("signal", sig.String()))
+		// Shutdown now that we've received the signal
+		if err := fs.Close(); err != nil {
+			zap.L().Fatal("shutdown error", zap.Error(err))
+		}
+	case <-fs.Join():
+		zap.L().Info("exiting: detected umount")
 	}
 }
