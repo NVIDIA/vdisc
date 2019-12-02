@@ -190,7 +190,7 @@ func (b *memBuf) Fill(key string, ff memBufFillFunc) (err error) {
 
 	if b.key != key {
 		b.key = key
-		_, err = ff(b.buf)
+		b.n, err = ff(b.buf)
 	}
 	return
 }

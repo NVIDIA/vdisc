@@ -88,30 +88,34 @@ func TestMemoryCache(t *testing.T) {
 }
 
 func TestMemoryCacheRace(t *testing.T) {
-	s, err := storage.Open("data:text/plain,aaaaaaaaaaaaaaaaaaaa")
-	if err != nil {
-		t.Fatal(err)
-	}
-	slicer, err := caching.NewMemorySlicer(8, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cache := caching.NewCache(slicer, 0)
-	cached := cache.WithCaching(s)
+	tokens := []int64{0, 1, 2}
 
-	var wg sync.WaitGroup
-	wg.Add(1000)
-	for i := 0; i < 1000; i++ {
-		go func() {
-			defer wg.Done()
-			src := io.NewSectionReader(cached, 0, cached.Size())
-			dst := bytes.NewBuffer(nil)
-			buf := make([]byte, 1)
-			_, err := io.CopyBuffer(dst, src, buf)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}()
+	for _, raTokens := range tokens {
+		s, err := storage.Open("data:text/plain,aaaaaaaaaaaaaaaaaaaa")
+		if err != nil {
+			t.Fatal(err)
+		}
+		slicer, err := caching.NewMemorySlicer(8, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cache := caching.NewCache(slicer, raTokens)
+		cached := cache.WithCaching(s)
+
+		var wg sync.WaitGroup
+		wg.Add(1000)
+		for i := 0; i < 1000; i++ {
+			go func() {
+				defer wg.Done()
+				src := io.NewSectionReader(cached, 0, cached.Size())
+				dst := bytes.NewBuffer(nil)
+				buf := make([]byte, 1)
+				_, err := io.CopyBuffer(dst, src, buf)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}()
+		}
+		wg.Wait()
 	}
-	wg.Wait()
 }
