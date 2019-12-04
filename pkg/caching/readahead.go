@@ -22,8 +22,9 @@ import (
 	"github.com/NVIDIA/vdisc/pkg/storage"
 )
 
-func NewReadAheadController(readAheadTokens *semaphore.Weighted, slicer Slicer, obj storage.Object) *ReadAheadController {
+func NewReadAheadController(window int, readAheadTokens *semaphore.Weighted, slicer Slicer, obj storage.Object) *ReadAheadController {
 	return &ReadAheadController{
+		window:          int64(window),
 		readAheadTokens: readAheadTokens,
 		slicer:          slicer,
 		obj:             obj,
@@ -33,6 +34,7 @@ func NewReadAheadController(readAheadTokens *semaphore.Weighted, slicer Slicer, 
 }
 
 type ReadAheadController struct {
+	window          int64
 	readAheadTokens *semaphore.Weighted
 	slicer          Slicer
 	obj             storage.Object
@@ -49,11 +51,13 @@ func (rac *ReadAheadController) Update(off int64, n int) {
 	rac.mu.Lock()
 	defer rac.mu.Unlock()
 
+	currBlock := off / rac.slicer.Bsize()
+
 	if rac.pos != off {
 		// Not a sequential read, reset
 		rac.runCount = 1
 		rac.runLength = int64(n)
-		rac.nextBlock = (off / rac.slicer.Bsize()) + 1 // current block + 1
+		rac.nextBlock = currBlock + 1
 	} else {
 		rac.runCount++
 		rac.runLength += int64(n)
@@ -61,14 +65,12 @@ func (rac *ReadAheadController) Update(off int64, n int) {
 	rac.pos = off + int64(n)
 
 	// We only read-ahead as many blocks as we've read sequentially.
-	limit := (rac.runLength + rac.slicer.Bsize() - 1) / rac.slicer.Bsize()
-	if limit > 32 {
-		limit = 32
-	}
-	for limit > 0 && rac.nextBlock < rac.numBlocks && rac.readAheadTokens.TryAcquire(1) {
+	damper := (rac.runLength + rac.slicer.Bsize() - 1) / rac.slicer.Bsize()
+	limit := currBlock + rac.window
+	for rac.nextBlock <= limit && damper > 0 && rac.nextBlock < rac.numBlocks && rac.readAheadTokens.TryAcquire(1) {
 		go rac.readBlock(rac.nextBlock)
 		rac.nextBlock++
-		limit--
+		damper--
 	}
 }
 

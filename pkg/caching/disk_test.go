@@ -74,7 +74,7 @@ func TestDiskCacheMiss0(t *testing.T) {
 
 	slicer := caching.NewDiskSlicer("/test", 4096)
 	defer slicer.Wait()
-	cache := caching.NewCache(slicer, 0)
+	cache := caching.NewCache(slicer, 0, 0)
 	obj = cache.WithCaching(obj)
 
 	// first, we expect the cache to look for the object
@@ -125,7 +125,7 @@ func TestDiskCacheMiss1(t *testing.T) {
 
 	slicer := caching.NewDiskSlicer("/test", 4096)
 	defer slicer.Wait()
-	cache := caching.NewCache(slicer, 0)
+	cache := caching.NewCache(slicer, 0, 0)
 	obj = cache.WithCaching(obj)
 
 	// first, we expect the cache to look for the object
@@ -180,7 +180,7 @@ func TestDiskCacheHit0(t *testing.T) {
 
 	slicer := caching.NewDiskSlicer("/test", 4096)
 	defer slicer.Wait()
-	cache := caching.NewCache(slicer, 0)
+	cache := caching.NewCache(slicer, 0, 0)
 	obj = cache.WithCaching(obj)
 
 	// first, we expect the cache to look for the object
@@ -214,7 +214,7 @@ func TestDiskCacheHit1(t *testing.T) {
 
 	slicer := caching.NewDiskSlicer("/test", 10)
 	defer slicer.Wait()
-	cache := caching.NewCache(slicer, 0)
+	cache := caching.NewCache(slicer, 0, 0)
 	obj = cache.WithCaching(obj)
 
 	// first, we expect the cache to look for the object

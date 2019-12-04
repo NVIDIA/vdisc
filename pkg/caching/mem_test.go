@@ -23,7 +23,6 @@ import (
 
 	"github.com/NVIDIA/vdisc/pkg/caching"
 	"github.com/NVIDIA/vdisc/pkg/storage"
-	_ "github.com/NVIDIA/vdisc/pkg/storage/data"
 )
 
 func TestMemoryCache(t *testing.T) {
@@ -55,7 +54,7 @@ func TestMemoryCache(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cache := caching.NewCache(slicer, 0)
+			cache := caching.NewCache(slicer, 0, 0)
 			sra := cache.WithCaching(storage.WithURL(srax, "test:srax"))
 
 			for i := 0; i < 10; i++ {
@@ -99,7 +98,7 @@ func TestMemoryCacheRace(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cache := caching.NewCache(slicer, raTokens)
+		cache := caching.NewCache(slicer, int(raTokens), raTokens)
 		cached := cache.WithCaching(s)
 
 		var wg sync.WaitGroup

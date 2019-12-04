@@ -26,6 +26,9 @@ go_test(
     srcs = [
         "disk_test.go",
         "mem_test.go",
+        "mock_slice_test.go",
+        "mock_slicer_test.go",
+        "readahead_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

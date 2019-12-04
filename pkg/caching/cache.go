@@ -51,12 +51,13 @@ func (nc nopCache) WithCaching(obj storage.Object) storage.Object {
 	return obj
 }
 
-func NewCache(slicer Slicer, readAheadTokens int64) Cache {
-	return &cache{slicer, semaphore.NewWeighted(readAheadTokens)}
+func NewCache(slicer Slicer, window int, readAheadTokens int64) Cache {
+	return &cache{slicer, window, semaphore.NewWeighted(readAheadTokens)}
 }
 
 type cache struct {
 	slicer          Slicer
+	window          int
 	readAheadTokens *semaphore.Weighted
 }
 
@@ -64,7 +65,7 @@ func (c *cache) WithCaching(obj storage.Object) storage.Object {
 	return &withCaching{
 		obj:                 obj,
 		slicer:              c.slicer,
-		readAheadController: NewReadAheadController(c.readAheadTokens, c.slicer, obj),
+		readAheadController: NewReadAheadController(c.window, c.readAheadTokens, c.slicer, obj),
 	}
 }
 

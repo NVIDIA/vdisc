@@ -31,7 +31,8 @@ type CacheConfig struct {
 	Bsize           units.SI `help:"Cache buffer size" default:"4MiB"`
 	Bcount          int64    `help:"Cache buffer count (memory mode only)" default:"16"`
 	Root            string   `help:"Disk mode cache root directory" default:"/var/cache/vdisc"`
-	ReadAheadTokens int64    `help:"Read-ahead tokens" default:"32"`
+	ReadAheadWindow int      `help:"Read-ahead window per file (in blocks)" default:"32"`
+	ReadAheadTokens int64    `help:"Read-ahead tokens shared across all files (in blocks)" default:"32"`
 }
 
 func SIDecoder(ctx *kong.DecodeContext, target reflect.Value) error {
@@ -62,11 +63,11 @@ func globalCache(cfg *CacheConfig) (cache caching.Cache) {
 		if err != nil {
 			zap.L().Fatal("creating cache memory slicer", zap.Error(err))
 		}
-		cache = caching.NewCache(slicer, cfg.ReadAheadTokens)
+		cache = caching.NewCache(slicer, cfg.ReadAheadWindow, cfg.ReadAheadTokens)
 	case "disk":
 
 		slicer := caching.NewDiskSlicer(globalCacheRoot(cfg), int64(cfg.Bsize))
-		cache = caching.NewCache(slicer, cfg.ReadAheadTokens)
+		cache = caching.NewCache(slicer, cfg.ReadAheadWindow, cfg.ReadAheadTokens)
 	default:
 		panic("never")
 	}
