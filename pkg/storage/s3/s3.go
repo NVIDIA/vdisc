@@ -246,15 +246,13 @@ type parsedURL struct {
 }
 
 func RegisterDefaultDriver() {
-	t := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          1024,
+	t := httputil.NewRoundRobinTransport(httputil.RoundRobinTransportConfig{
+		MaxHosts:              1024,
 		MaxIdleConnsPerHost:   1024,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}
-	httputil.AddDNSCache(t)
+	})
 
 	driver.Register("s3", &Driver{
 		sess:              session.Must(session.NewSession()),

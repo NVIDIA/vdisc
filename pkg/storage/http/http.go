@@ -101,25 +101,22 @@ func (d *Driver) newClient(ctx context.Context) *http.Client {
 		c.Timeout = 30 * time.Second
 	}
 
+	t := httputil.WithRetries(d.defaultTransport)
 	if authz, ok := AuthzFromCtx(ctx); ok {
-		c.Transport = httputil.WithAuthz(d.defaultTransport, *authz)
-	} else {
-		c.Transport = d.defaultTransport
+		t = httputil.WithAuthz(t, *authz)
 	}
+	c.Transport = t
 	return c
 }
 
 func RegisterDefaultDriver() {
-	t := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          1024,
+	t := httputil.NewRoundRobinTransport(httputil.RoundRobinTransportConfig{
+		MaxHosts:              1024,
 		MaxIdleConnsPerHost:   1024,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}
-	httputil.AddDNSCache(t)
-
+	})
 	d := &Driver{
 		defaultTransport: httputil.WithMetrics(t, "http"),
 	}
