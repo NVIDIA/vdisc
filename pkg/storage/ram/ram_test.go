@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ram_test
+package ramdriver_test
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/NVIDIA/vdisc/pkg/storage/driver"
-	"github.com/NVIDIA/vdisc/pkg/storage/ram"
+	ramdriver "github.com/NVIDIA/vdisc/pkg/storage/ram"
 )
 
 func TestRamDriver(t *testing.T) {

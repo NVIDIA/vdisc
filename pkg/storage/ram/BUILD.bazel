@@ -1,28 +1,25 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
+go_test(
+    name = "go_default_test",
+    srcs = ["ram_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/storage/driver:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+    ],
+)
+
 go_library(
     name = "go_default_library",
     srcs = [
-        "inode.go",
         "finfo.go",
+        "inode.go",
         "object.go",
         "ram.go",
         "writer.go",
     ],
     importpath = "github.com/NVIDIA/vdisc/pkg/storage/ram",
     visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/storage/driver:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["ram_test.go"],
-    embed = [":go_default_library"],
-    deps = [
-        "@com_github_stretchr_testify//assert:go_default_library",
-        "//pkg/storage/driver:go_default_library",
-    ],
-
+    deps = ["//pkg/storage/driver:go_default_library"],
 )
