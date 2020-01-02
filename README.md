@@ -54,7 +54,23 @@ MD5 (mnist/train-images-idx3-ubyte.gz) = b1c2f15e5ea102012fa9da59cd0d6d7c
 MD5 (mnist/train-labels-idx1-ubyte.gz) = e538dc41040b558f796a632c4604bbeb
 ```
 
+### TCMU
+
 By default, vdisc mount uses fuse, but on linux you can TCMU by specifying `--mode=tcmu`.
+
+```sh
+$ sudo vdisc mount --url=mnist.vdsc --mountpoint=mnist --mode=tcmu
+1.5779329931983676e+09  info    maxprocs/maxprocs.go:47 maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined
+1.577932993206059e+09   warn    blockdev/cmd_handler.go:52      Ignore unknown SCSI command 0xa3
+1.5779329942062142e+09  info    cli/mount_linux.go:55   created tcmu device     {"device": "/dev/sda"}
+1.5779329947417123e+09  info    cli/mount_linux.go:66   mounted tcmu device     {"device": "/dev/sda", "mountpoint": "/home/ubuntu/vdisc-getting-started/mnist"}
+```
+
+Note that you may need `sudo` to for TCMU mode if you encounter errors like below
+
+```
+fatal   cli/mount_linux.go:51   opening tcmu device     {"error": "opening tcmu device: mkdir /sys/kernel/config/target/core/user_30: permission denied"}
+```
 
 Architecture
 ------------
