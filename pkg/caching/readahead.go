@@ -61,6 +61,9 @@ func (rac *ReadAheadController) Update(off int64, n int) {
 	} else {
 		rac.runCount++
 		rac.runLength += int64(n)
+		if rac.nextBlock <= currBlock {
+			rac.nextBlock = currBlock + 1
+		}
 	}
 	rac.pos = off + int64(n)
 

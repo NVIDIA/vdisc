@@ -60,10 +60,7 @@ func (_m *mockSlice) Read(p []byte) (int, error) {
 
 // ReadAhead provides a mock function with given fields:
 func (_m *mockSlice) ReadAhead() {
-	ret := _m.Called()
-	if rf, ok := ret.Get(0).(func()); ok {
-		rf()
-	}
+	_m.Called()
 }
 
 // ReadAt provides a mock function with given fields: p, off
