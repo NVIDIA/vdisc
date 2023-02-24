@@ -17,7 +17,6 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/jacobsa/fuse v0.0.0-20190923155423-081e9f4bc7d4
-	github.com/lukealonso/dnscache v0.0.0-20190603182722-ca742573d4fd
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
@@ -29,9 +28,8 @@ require (
 	github.com/vincent-petithory/dataurl v0.0.0-20160330182126-9a301d65acbb
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/zap v1.10.0
-	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20191009170203-06d7bd2c5f4f
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sys v0.5.0
 	zombiezen.com/go/capnproto2 v0.0.0-20181004142158-659aba4018b6
 )
